@@ -6,6 +6,7 @@ jspm_packages
 .serverless
 
 .env*
+!.env.example
 credentials.json
 token.json
 dist
