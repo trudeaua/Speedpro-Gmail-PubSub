@@ -1,9 +1,10 @@
 import dayjs from 'dayjs';
 import type { OAuth2Client } from 'google-auth-library';
-import { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
+import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
 import { DriveService } from '@services/drive.service';
-import { GmailService, ParsedMessage } from '@services/gmail.service';
+import type { ParsedMessage } from '@services/gmail.service';
+import { GmailService } from '@services/gmail.service';
 
 export class CorebridgeProcessorService {
   private readonly driveService: DriveService;
@@ -95,14 +96,16 @@ export class CorebridgeProcessorService {
     const headers: Record<string, string> = {};
     for (const label of labels) {
       // eslint-disable-next-line no-useless-escape
-      const match = content.match(new RegExp(`${label}:\s*(.*?)\n`));
+      const re = new RegExp(`${label}:\s*(.*?)\n`);
+      // eslint-disable-next-line no-useless-escape
+      const match = re.exec(content);
       if (match) {
         headers[label] = match[1].trim().replace(/<pre>|<\/pre>/g, '');
       }
     }
 
     // Append the date from the message metadata to the headers.
-    headers['METADATA_DATE'] = date;
+    headers.METADATA_DATE = date;
 
     // Process the message as a new customer if applicable.
     if (CorebridgeProcessorService.isNewCustomer(parsedMessage)) {
@@ -121,7 +124,7 @@ export class CorebridgeProcessorService {
    * @param {Record<string, string>} headers - The headers of the message.
    * @return {Promise<void>} A promise that resolves when the directory is created.
    */
-  private async processNewCustomer(headers: Record<string, string>) {
+  private async processNewCustomer(headers: Record<string, string>): Promise<void> {
     // Extract the customer name from the headers.
     const customer = headers.Customer;
     // Extract the first character of the customer name and convert it to uppercase.
@@ -146,7 +149,7 @@ export class CorebridgeProcessorService {
    * @param {Record<string, string>} headers - The headers of the message.
    * @return {Promise<void>} A promise that resolves when the directory and subdirectories are created.
    */
-  private async processNewEstimate(headers: Record<string, string>) {
+  private async processNewEstimate(headers: Record<string, string | undefined>): Promise<void> {
     // Extract the required headers
     const customer = headers.Customer;
     const occurred = headers.METADATA_DATE ?? headers.Occurred;

@@ -1,5 +1,6 @@
 import type { OAuth2Client } from 'google-auth-library';
-import { gmail_v1, google } from 'googleapis';
+import type { gmail_v1 } from 'googleapis';
+import { google } from 'googleapis';
 import type { GaxiosPromise } from 'googleapis/build/src/apis/gmail';
 
 /**
@@ -106,7 +107,7 @@ export class GmailService {
    * @return {Promise<gmail_v1.Schema$Message>} A promise that resolves to the message.
    */
   public async getMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
-    const response = await new Promise<gmail_v1.Schema$Message>((resolve, reject) =>
+    const response = await new Promise<gmail_v1.Schema$Message>((resolve, reject) => {
       this.gmail.users.messages
         .get({
           userId: 'me',
@@ -114,11 +115,17 @@ export class GmailService {
         })
         .then((res) => {
           resolve(res.data);
+          return;
         })
         .catch((err) => {
-          reject(err);
-        })
-    );
+          if (err instanceof Error) {
+            reject(err);
+            return;
+          }
+          console.error(err);
+          return;
+        });
+    });
     return response;
   }
 
@@ -127,20 +134,27 @@ export class GmailService {
    *
    * @return {Promise<void>} A promise that resolves when the watch is set up.
    */
-  public async watchUser(): Promise<void> {
-    return this.gmail.users.watch(
-      {
-        userId: 'me',
-        requestBody: {
-          labelIds: ['INBOX'],
-          topicName: process.env.GCP_PUBSUB_TOPIC
+  public async watchUser(): Promise<gmail_v1.Schema$WatchResponse> {
+    return new Promise<gmail_v1.Schema$WatchResponse>((resolve, reject) => {
+      this.gmail.users.watch(
+        {
+          userId: 'me',
+          requestBody: {
+            labelIds: ['INBOX'],
+            topicName: process.env.GCP_PUBSUB_TOPIC
+          }
+        },
+        (err, res) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          if (res) {
+            resolve(res.data);
+            return;
+          }
         }
-      },
-      (err) => {
-        if (err) {
-          throw err;
-        }
-      }
-    );
+      );
+    });
   }
 }

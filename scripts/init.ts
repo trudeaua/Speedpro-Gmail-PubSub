@@ -1,6 +1,7 @@
-import dotenv from "dotenv";
-import { AuthService } from "@services/auth.service";
-import { GmailService } from "@services/gmail.service";
+import dotenv from 'dotenv';
+
+import { AuthService } from '@services/auth.service';
+import { GmailService } from '@services/gmail.service';
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ dotenv.config();
  * After successful authorization, the user's Gmail will be watched for new messages.
  * The user's credentials will be stored in AWS Secrets Manager.
  */
-async function main() {
+async function main(): Promise<void> {
   const authService = new AuthService();
   const auth = await authService.authorize(true);
   const gmail = new GmailService(auth);
@@ -18,4 +19,4 @@ async function main() {
   await gmail.watchUser();
 }
 
-main();
+void main();

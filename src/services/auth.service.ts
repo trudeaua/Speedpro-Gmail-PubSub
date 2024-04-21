@@ -3,10 +3,9 @@ import {
   GetSecretValueCommand,
   PutSecretValueCommand,
   DescribeSecretCommand,
-  CreateSecretCommand,
-  type DescribeSecretCommandOutput,
-  type PutSecretValueCommandOutput
+  CreateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
+import type { DescribeSecretCommandOutput, PutSecretValueCommandOutput } from '@aws-sdk/client-secrets-manager';
 import { authenticate } from '@google-cloud/local-auth';
 import fs from 'fs/promises';
 import type { OAuth2Client } from 'google-auth-library';
@@ -15,14 +14,14 @@ import { google } from 'googleapis';
 import path from 'path';
 
 export class AuthService {
-  private readonly SCOPES: string[];
-  private readonly CREDENTIALS_PATH: string;
+  private readonly scopes: string[];
+  private readonly credentialsPath: string;
   private readonly secretsManager: SecretsManagerClient;
   private readonly secretTokenId = 'gmailpubsub/google_token';
 
   public constructor() {
-    this.SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/gmail.readonly'];
-    this.CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
+    this.scopes = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/gmail.readonly'];
+    this.credentialsPath = path.join(process.cwd(), 'credentials.json');
     this.secretsManager = new SecretsManagerClient({});
   }
 
@@ -53,14 +52,12 @@ export class AuthService {
 
       // Authenticate with the Google Cloud API to obtain the credentials
       client = await authenticate({
-        scopes: this.SCOPES,
-        keyfilePath: this.CREDENTIALS_PATH
+        scopes: this.scopes,
+        keyfilePath: this.credentialsPath
       });
 
       // If the credentials exist, save them in the secrets manager
-      if (client?.credentials) {
-        await this.saveCredentials(client);
-      }
+      await this.saveCredentials(client);
     }
 
     // Return the obtained or loaded credentials
@@ -76,6 +73,7 @@ export class AuthService {
   private async getToken(): Promise<JWTInput> {
     // Create the command to get the secret value
     const command = new GetSecretValueCommand({
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       SecretId: this.secretTokenId
     });
 
@@ -84,11 +82,12 @@ export class AuthService {
 
     try {
       // Check if the secret string is missing
-      if (!response.SecretString) {
+      if (response.SecretString == null) {
         throw new Error('Missing secret string');
       }
 
       // Parse the secret string
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsed = JSON.parse(response.SecretString);
 
       // Check if the token format is valid
@@ -117,9 +116,10 @@ export class AuthService {
   private async putToken(token: JWTInput): Promise<DescribeSecretCommandOutput | PutSecretValueCommandOutput> {
     // Describe the secret to check if it exists
     const command = new DescribeSecretCommand({
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       SecretId: this.secretTokenId
     });
-    let response;
+    let response: DescribeSecretCommandOutput | PutSecretValueCommandOutput;
     try {
       // Try to describe the secret
       response = await this.secretsManager.send(command);
@@ -173,13 +173,17 @@ export class AuthService {
    * @param {OAuth2Client} client
    * @return {Promise<void>}
    */
-  private async saveCredentials(client: OAuth2Client) {
-    const content = await fs.readFile(this.CREDENTIALS_PATH);
+  private async saveCredentials(client: OAuth2Client): Promise<void> {
+    const content = await fs.readFile(this.credentialsPath);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const keys = JSON.parse(content.toString());
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const key = keys.installed || keys.web;
     const token: JWTInput = {
       type: 'authorized_user',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       client_id: key.client_id,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       client_secret: key.client_secret,
       refresh_token: client.credentials.refresh_token ?? undefined
     };

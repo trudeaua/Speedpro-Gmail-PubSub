@@ -1,5 +1,5 @@
-import { PutObjectCommandOutput } from '@aws-sdk/client-s3';
-import { APIGatewayEvent } from 'aws-lambda';
+import type { PutObjectCommandOutput } from '@aws-sdk/client-s3';
+import type { APIGatewayEvent } from 'aws-lambda';
 import dotenv from 'dotenv';
 
 import { AuthService } from '@services/auth.service';
@@ -16,20 +16,25 @@ const stateFileName = 'state.json';
  *
  * @param {FileService} fileService - The file service used to interact with the S3 bucket.
  * @returns {Promise<string>} The history id retrieved from the state file.
- * @throws {Error} If the history id is not present or not a string or number.
+ * @throws {Error} If the history id is not present, not a string or number, or cannot be parsed.
  */
 async function retrieveHistoryIdFromStateFile(fileService: FileService): Promise<string> {
   // Retrieve the state object from the S3 bucket
   const stateObject = await fileService.getObject(stateFileName);
   // Parse the state object from JSON format
-  const state = JSON.parse(stateObject);
+  let state: { historyId?: number | string } | undefined;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    state = JSON.parse(stateObject);
+  } catch (err) {
+    throw new Error('Failed to parse state file');
+  }
   // Check if the history id is present and if it is a string or number
-  if (!state.historyId || (typeof state.historyId !== 'string' && typeof state.historyId !== 'number')) {
-    // Throw an error if the history id is not present or not a string or number
+  if (state?.historyId === undefined || (typeof state.historyId !== 'string' && typeof state.historyId !== 'number')) {
     throw new Error('Failed to retrieve history id from state file');
   }
   // Return the history id as a string
-  return state.historyId.toString();
+  return `${state.historyId}`;
 }
 
 /**
@@ -53,25 +58,22 @@ async function updateState(fileService: FileService, historyId: string): Promise
  * @returns {Object} - An object with the email address and history id.
  * @throws {Error} - If the payload is invalid or missing either the email address or history id.
  */
-function parseEvent(event: APIGatewayEvent) {
+function parseEvent(event: APIGatewayEvent): {
+  emailAddress: string;
+  historyId: string;
+} {
   // Extract the payload from the API Gateway event.
   // If the payload is a string, parse it as JSON. Otherwise, use it as is.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payload: any;
-  if (typeof event.body === 'string') {
-    payload = JSON.parse(event.body);
-  } else {
-    payload = event.body;
-  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const payload = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
 
   try {
     // Parse the base64 encoded payload and extract the email address and history id.
-    const { emailAddress, historyId } = JSON.parse(Buffer.from(payload.message.data, 'base64').toString('utf8'));
-
-    // Throw an error if either the email address or history id is missing.
-    if (!emailAddress || !historyId) {
-      throw new Error('Invalid payload. Missing email address and/or history id');
-    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { emailAddress, historyId }: { emailAddress: string; historyId: string } = JSON.parse(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+      Buffer.from(payload.message.data, 'base64').toString('utf8')
+    );
 
     // Return an object with the email address and history id.
     return { emailAddress, historyId };
@@ -85,7 +87,6 @@ function parseEvent(event: APIGatewayEvent) {
  * Main Lambda handler function.
  *
  * @param {APIGatewayEvent} event - The event triggering the Lambda function.
- * @param {Context} _context - The Lambda function runtime context.
  * @returns {Promise<Object>} - A Promise that resolves to an object with a statusCode and a body.
  */
 export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: number; body: string }> => {

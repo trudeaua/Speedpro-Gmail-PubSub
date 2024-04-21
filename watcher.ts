@@ -8,8 +8,6 @@ dotenv.config();
 /**
  * AWS Lambda handler function to watch a user's Gmail.
  *
- * @param {APIGatewayEvent} _event - The event that triggered the function.
- * @param {Context} _context - The context of the function.
  * @returns {Promise<{ statusCode: number, body: string }>} - A promise that resolves to an object with a status code and a body.
  */
 export const handler = async (): Promise<{ statusCode: number; body: string }> => {
