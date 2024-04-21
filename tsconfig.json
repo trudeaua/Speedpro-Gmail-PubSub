@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
+    "target": "ES2015",
+    "module": "ES2015",
     "allowJs": true,
     "removeComments": true,
     "resolveJsonModule": true,
@@ -16,8 +16,12 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "moduleResolution": "Node",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "paths": {
+      "@services/*": ["./src/services/*"],
+    }
   },
-  "include": ["src/**/*.ts", "index.ts", "webhook.ts", "watcher.ts"],
+  "include": ["src/**/*.ts", "index.ts", "webhook.ts", "watcher.ts", "scripts/*.ts"],
   "exclude": ["node_modules"]
 }

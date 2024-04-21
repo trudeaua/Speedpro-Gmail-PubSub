@@ -1,14 +1,10 @@
-import {
-  S3Client,
-  GetObjectCommand,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
-import { StreamingBlobPayloadInputTypes } from "@smithy/types";
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { StreamingBlobPayloadInputTypes } from '@smithy/types';
 
 export class FileService {
   private readonly s3: S3Client;
 
-  private readonly bucket = "gmailpubsub-state";
+  private readonly bucket = 'gmailpubsub-state';
 
   public constructor() {
     this.s3 = new S3Client({});
@@ -22,7 +18,7 @@ export class FileService {
     const response = await this.s3.send(command);
     const bodyString = await response.Body?.transformToString();
     if (!bodyString) {
-      throw new Error("Failed to parse object body");
+      throw new Error('Failed to parse object body');
     }
     return bodyString;
   }

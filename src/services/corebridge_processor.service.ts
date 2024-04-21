@@ -1,8 +1,9 @@
-import dayjs from "dayjs";
-import type { OAuth2Client } from "google-auth-library";
-import { gmail_v1 } from "googleapis/build/src/apis/gmail/v1";
-import { DriveService } from "./drive.service";
-import { GmailService, ParsedMessage } from "./gmail.service";
+import dayjs from 'dayjs';
+import type { OAuth2Client } from 'google-auth-library';
+import { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
+
+import { DriveService } from '@services/drive.service';
+import { GmailService, ParsedMessage } from '@services/gmail.service';
 
 export class CorebridgeProcessorService {
   private readonly driveService: DriveService;
@@ -17,7 +18,7 @@ export class CorebridgeProcessorService {
    * @return {boolean} True if the message is a new customer message, false otherwise.
    */
   private static isNewCustomer(message: ParsedMessage): boolean {
-    return message.subject === "New Customer";
+    return message.subject === 'New Customer';
   }
 
   /**
@@ -27,7 +28,7 @@ export class CorebridgeProcessorService {
    * @return {boolean} True if the message is a new estimate message, false otherwise.
    */
   private static isNewEstimate(message: ParsedMessage): boolean {
-    return message.subject === "New Estimate";
+    return message.subject === 'New Estimate';
   }
 
   /**
@@ -42,22 +43,18 @@ export class CorebridgeProcessorService {
   private static isValidMessage(message: ParsedMessage): boolean {
     // Whitelisted email addresses from which valid messages can come.
     const emailWhitelist = [
-      "alert@corebridge.net",
-      "jeff@speedproerinmills.ca",
-      "alex@speedproerinmills.ca",
-      "alextrudeau97@gmail.com",
+      'alert@corebridge.net',
+      'jeff@speedproerinmills.ca',
+      'alex@speedproerinmills.ca',
+      'alextrudeau97@gmail.com'
     ];
 
     // Check if the message comes from a whitelisted email address.
-    const isValidFrom = Boolean(
-      message.from &&
-        emailWhitelist.some((email) => (message.from ?? "").includes(email))
-    );
+    const isValidFrom = Boolean(message.from && emailWhitelist.some((email) => (message.from ?? '').includes(email)));
 
     // Check if the message is a new customer message or a new estimate message.
     const isValidSubject =
-      CorebridgeProcessorService.isNewCustomer(message) ||
-      CorebridgeProcessorService.isNewEstimate(message);
+      CorebridgeProcessorService.isNewCustomer(message) || CorebridgeProcessorService.isNewEstimate(message);
 
     // Return true if the message is valid, false otherwise.
     return isValidFrom && isValidSubject;
@@ -74,44 +71,38 @@ export class CorebridgeProcessorService {
     const parsedMessage = GmailService.parseMessage(message);
 
     // Destructure the parsed message to extract the relevant fields.
-    const { content = "", from = "", subject = "", date = "" } = parsedMessage;
+    const { content = '', from = '', subject = '', date = '' } = parsedMessage;
 
     // Check if the message is valid.
     if (!CorebridgeProcessorService.isValidMessage(parsedMessage)) {
       // Log a warning and skip the message if it is invalid.
-      console.warn(
-        "Invalid email message: ",
-        from,
-        subject,
-        date,
-        Boolean(content),
-        "Skipping."
-      );
+      console.warn('Invalid email message: ', from, subject, date, Boolean(content), 'Skipping.');
       return;
     }
 
     // Parse the headers of the message.
     const labels = [
-      "Alert",
-      "Customer",
-      "Reference #",
-      "Salesperson",
-      "Description",
-      "Event",
-      "SubTotal Price",
-      "Occurred",
+      'Alert',
+      'Customer',
+      'Reference #',
+      'Salesperson',
+      'Description',
+      'Event',
+      'SubTotal Price',
+      'Occurred'
     ];
 
     const headers: Record<string, string> = {};
     for (const label of labels) {
+      // eslint-disable-next-line no-useless-escape
       const match = content.match(new RegExp(`${label}:\s*(.*?)\n`));
       if (match) {
-        headers[label] = match[1].trim().replace(/<pre>|<\/pre>/g, "");
+        headers[label] = match[1].trim().replace(/<pre>|<\/pre>/g, '');
       }
     }
 
     // Append the date from the message metadata to the headers.
-    headers["METADATA_DATE"] = date;
+    headers['METADATA_DATE'] = date;
 
     // Process the message as a new customer if applicable.
     if (CorebridgeProcessorService.isNewCustomer(parsedMessage)) {
@@ -138,7 +129,7 @@ export class CorebridgeProcessorService {
 
     // Log a warning and skip the message if the customer name is invalid.
     if (!customer || !beginsWith) {
-      console.warn("Invalid customer name. Skipping.");
+      console.warn('Invalid customer name. Skipping.');
       return;
     }
 
@@ -159,29 +150,25 @@ export class CorebridgeProcessorService {
     // Extract the required headers
     const customer = headers.Customer;
     const occurred = headers.METADATA_DATE ?? headers.Occurred;
-    const reference = headers["Reference #"]?.split("-")[1];
+    const reference = headers['Reference #']?.split('-')[1];
     const description = headers.Description;
 
     // Log a warning and skip the message if any of the required headers are invalid.
     if (!customer || !occurred || !reference || !description) {
-      console.warn("Invalid estimate. Skipping.");
+      console.warn('Invalid estimate. Skipping.');
       return;
     }
 
     // Construct the directory name
-    const date = occurred
-      ? dayjs(occurred).add(dayjs(occurred).utcOffset(), "minutes")
-      : undefined;
-    const year = date?.get("year");
-    const month = date
-      ? (date.get("month") + 1).toString().padStart(2, "0")
-      : undefined;
+    const date = occurred ? dayjs(occurred).add(dayjs(occurred).utcOffset(), 'minutes') : undefined;
+    const year = date?.get('year');
+    const month = date ? (date.get('month') + 1).toString().padStart(2, '0') : undefined;
     const dirName = `${year}.${month}_${reference}_${description}`;
 
     // Construct the directory path
     const beginsWith = customer.at(0)?.toUpperCase();
     if (!customer || !beginsWith) {
-      console.warn("Invalid customer name. Skipping.");
+      console.warn('Invalid customer name. Skipping.');
       return;
     }
     const directory = [beginsWith, customer, dirName];
@@ -191,11 +178,11 @@ export class CorebridgeProcessorService {
     await this.driveService.createSubFolders([...directory]);
 
     const subfolders: Record<string, string[]> = {
-      "1_Artwork": ["Assets"],
-      "2_Permits": [],
-      "3_Photos": ["Survey", "Progress", "Completion"],
-      "4_Production": [],
-      "5_Quotes": [],
+      '1_Artwork': ['Assets'],
+      '2_Permits': [],
+      '3_Photos': ['Survey', 'Progress', 'Completion'],
+      '4_Production': [],
+      '5_Quotes': []
     };
 
     // Create the subdirectories
@@ -204,11 +191,7 @@ export class CorebridgeProcessorService {
       if (hasSubfolders) {
         // If there are subfolders, create the folder and its subfolders
         for (const subsubfolder of subfolders[subfolder]) {
-          await this.driveService.createSubFolders([
-            ...directory,
-            subfolder,
-            subsubfolder,
-          ]);
+          await this.driveService.createSubFolders([...directory, subfolder, subsubfolder]);
         }
       } else {
         // Otherwise just create the folder

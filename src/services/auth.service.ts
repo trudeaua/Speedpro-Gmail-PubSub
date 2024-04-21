@@ -4,28 +4,25 @@ import {
   PutSecretValueCommand,
   DescribeSecretCommand,
   CreateSecretCommand,
-  DescribeSecretCommandOutput,
-  PutSecretValueCommandOutput,
-} from "@aws-sdk/client-secrets-manager";
-import { authenticate } from "@google-cloud/local-auth";
-import fs from "fs/promises";
-import type { OAuth2Client } from "google-auth-library";
-import type { JWTInput } from "google-auth-library/build/src/auth/credentials";
-import { google } from "googleapis";
-import path from "path";
+  type DescribeSecretCommandOutput,
+  type PutSecretValueCommandOutput
+} from '@aws-sdk/client-secrets-manager';
+import { authenticate } from '@google-cloud/local-auth';
+import fs from 'fs/promises';
+import type { OAuth2Client } from 'google-auth-library';
+import type { JWTInput } from 'google-auth-library/build/src/auth/credentials';
+import { google } from 'googleapis';
+import path from 'path';
 
 export class AuthService {
   private readonly SCOPES: string[];
   private readonly CREDENTIALS_PATH: string;
   private readonly secretsManager: SecretsManagerClient;
-  private readonly secretTokenId = "gmailpubsub/google_token";
+  private readonly secretTokenId = 'gmailpubsub/google_token';
 
   public constructor() {
-    this.SCOPES = [
-      "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/gmail.readonly",
-    ];
-    this.CREDENTIALS_PATH = path.join(process.cwd(), "credentials.json");
+    this.SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/gmail.readonly'];
+    this.CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
     this.secretsManager = new SecretsManagerClient({});
   }
 
@@ -50,14 +47,14 @@ export class AuthService {
     // If the credentials are not found, proceed to authenticate
     if (!client) {
       // In a production environment, credentials need to be present
-      if (process.env.NODE_ENV === "production") {
-        throw new Error("Credentials not found");
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Credentials not found');
       }
 
       // Authenticate with the Google Cloud API to obtain the credentials
       client = await authenticate({
         scopes: this.SCOPES,
-        keyfilePath: this.CREDENTIALS_PATH,
+        keyfilePath: this.CREDENTIALS_PATH
       });
 
       // If the credentials exist, save them in the secrets manager
@@ -79,7 +76,7 @@ export class AuthService {
   private async getToken(): Promise<JWTInput> {
     // Create the command to get the secret value
     const command = new GetSecretValueCommand({
-      SecretId: this.secretTokenId,
+      SecretId: this.secretTokenId
     });
 
     // Send the command to the secrets manager
@@ -88,16 +85,16 @@ export class AuthService {
     try {
       // Check if the secret string is missing
       if (!response.SecretString) {
-        throw new Error("Missing secret string");
+        throw new Error('Missing secret string');
       }
 
       // Parse the secret string
       const parsed = JSON.parse(response.SecretString);
 
       // Check if the token format is valid
-      const reqProps = ["type", "client_id", "client_secret", "refresh_token"];
+      const reqProps = ['type', 'client_id', 'client_secret', 'refresh_token'];
       if (!reqProps.every((prop) => prop in parsed)) {
-        throw new Error("Invalid token format");
+        throw new Error('Invalid token format');
       }
 
       // Return the parsed token
@@ -105,7 +102,7 @@ export class AuthService {
     } catch (err) {
       // Log and re-throw the error
       console.error(err);
-      throw new Error("Failed to parse token secret");
+      throw new Error('Failed to parse token secret');
     }
   }
 
@@ -117,12 +114,10 @@ export class AuthService {
    * @return {Promise<DescribeSecretCommandOutput | PutSecretValueCommandOutput>} - A promise that resolves to the response of the describe or put secret command.
    * @throws {Error} - If there's an error other than ResourceNotFoundException, it's thrown.
    */
-  private async putToken(
-    token: JWTInput
-  ): Promise<DescribeSecretCommandOutput | PutSecretValueCommandOutput> {
+  private async putToken(token: JWTInput): Promise<DescribeSecretCommandOutput | PutSecretValueCommandOutput> {
     // Describe the secret to check if it exists
     const command = new DescribeSecretCommand({
-      SecretId: this.secretTokenId,
+      SecretId: this.secretTokenId
     });
     let response;
     try {
@@ -130,10 +125,10 @@ export class AuthService {
       response = await this.secretsManager.send(command);
     } catch (err) {
       // If the secret doesn't exist, create it
-      if ((err as any).name === "ResourceNotFoundException") {
+      if (err instanceof Error && err.name === 'ResourceNotFoundException') {
         const createCommand = new CreateSecretCommand({
           Name: this.secretTokenId,
-          SecretString: JSON.stringify(token),
+          SecretString: JSON.stringify(token)
         });
         response = await this.secretsManager.send(createCommand);
       } else {
@@ -145,7 +140,7 @@ export class AuthService {
     if (response.ARN) {
       const updateCommand = new PutSecretValueCommand({
         SecretId: this.secretTokenId,
-        SecretString: JSON.stringify(token),
+        SecretString: JSON.stringify(token)
       });
       return this.secretsManager.send(updateCommand);
     } else {
@@ -183,10 +178,10 @@ export class AuthService {
     const keys = JSON.parse(content.toString());
     const key = keys.installed || keys.web;
     const token: JWTInput = {
-      type: "authorized_user",
+      type: 'authorized_user',
       client_id: key.client_id,
       client_secret: key.client_secret,
-      refresh_token: client.credentials.refresh_token ?? undefined,
+      refresh_token: client.credentials.refresh_token ?? undefined
     };
     await this.putToken(token);
   }

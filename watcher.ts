@@ -1,7 +1,7 @@
-import { APIGatewayEvent, Context } from "aws-lambda";
-import dotenv from "dotenv";
-import { AuthService } from "./src/services/auth.service";
-import { GmailService } from "./src/services/gmail.service";
+import dotenv from 'dotenv';
+
+import { AuthService } from '@services/auth.service';
+import { GmailService } from '@services/gmail.service';
 
 dotenv.config();
 
@@ -12,10 +12,7 @@ dotenv.config();
  * @param {Context} _context - The context of the function.
  * @returns {Promise<{ statusCode: number, body: string }>} - A promise that resolves to an object with a status code and a body.
  */
-export const handler = async (
-  _event: APIGatewayEvent,
-  _context: Context
-): Promise<{ statusCode: number; body: string }> => {
+export const handler = async (): Promise<{ statusCode: number; body: string }> => {
   // Create an instance of the AuthService.
   const authService = new AuthService();
 
@@ -31,6 +28,6 @@ export const handler = async (
   // Return a successful response.
   return {
     statusCode: 200,
-    body: JSON.stringify("Watching user!"),
+    body: JSON.stringify('Watching user!')
   };
 };

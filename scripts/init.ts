@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
-import { AuthService } from "../src/services/auth.service";
-import { GmailService } from "../src/services/gmail.service";
+import { AuthService } from "@services/auth.service";
+import { GmailService } from "@services/gmail.service";
 
 dotenv.config();
 
