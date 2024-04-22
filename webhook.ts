@@ -114,7 +114,11 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
     if (!messagesAdded) continue;
     for (const { message } of messagesAdded) {
       if (!message?.id) continue;
-      const { id } = message;
+      const { id, labelIds } = message;
+      // Check labels. Only process messages with a supported label
+      const isValidLabel = (labelIds ?? []).some((labelId) => gmailService.getLabelIds().includes(labelId));
+      if (!isValidLabel) continue;
+
       // Handle email doesn't exist
       let gmailMessage: gmail_v1.Schema$Message;
       try {
@@ -125,8 +129,9 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
         }
         continue;
       }
+
+      // Process the email message
       try {
-        // Process the email message
         await corebridgeProcessorService.processMessage(gmailMessage);
       } catch (err) {
         if (err instanceof Error) {

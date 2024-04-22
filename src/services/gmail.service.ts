@@ -38,6 +38,7 @@ enum GmailLabel {
  * A service to interact with Gmail API.
  */
 export class GmailService {
+  private readonly labelIds = [GmailLabel.CorebridgeNewCustomer, GmailLabel.CorebridgeNewEstimate];
   /**
    * The Gmail API client.
    */
@@ -92,6 +93,10 @@ export class GmailService {
     return result;
   }
 
+  public getLabelIds(): string[] {
+    return this.labelIds;
+  }
+
   /**
    * Lists the Gmail message history.
    *
@@ -141,13 +146,12 @@ export class GmailService {
    * @return {Promise<void>} A promise that resolves when the watch is set up.
    */
   public async watchUser(): Promise<gmail_v1.Schema$WatchResponse> {
-    const labelIds = [GmailLabel.CorebridgeNewCustomer, GmailLabel.CorebridgeNewEstimate];
     return new Promise<gmail_v1.Schema$WatchResponse>((resolve, reject) => {
       this.gmail.users.watch(
         {
           userId: 'me',
           requestBody: {
-            labelIds,
+            labelIds: this.labelIds,
             topicName: process.env.GCP_PUBSUB_TOPIC
           }
         },
