@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2015",
-    "module": "ES2015",
+    "module": "Node16",
     "allowJs": true,
     "removeComments": true,
     "resolveJsonModule": true,
@@ -15,13 +15,16 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "Node16",
     "skipLibCheck": true,
     "strictNullChecks": true,
     "paths": {
-      "@services/*": ["./src/services/*"],
+      "@services/*": ["src/services/*"],
     }
   },
-  "include": ["src/**/*.ts", "index.ts", "webhook.ts", "watcher.ts", "scripts/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts", "*.ts", "scripts/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  }
 }

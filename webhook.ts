@@ -1,6 +1,7 @@
 import type { PutObjectCommandOutput } from '@aws-sdk/client-s3';
 import type { APIGatewayEvent } from 'aws-lambda';
 import dotenv from 'dotenv';
+import type { gmail_v1 } from 'googleapis';
 
 import { AuthService } from '@services/auth.service';
 import { CorebridgeProcessorService } from '@services/corebridge_processor.service';
@@ -114,9 +115,25 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
     for (const { message } of messagesAdded) {
       if (!message?.id) continue;
       const { id } = message;
-      const emailMessage = await gmailService.getMessage(id);
-      // Process the email message
-      await corebridgeProcessorService.processMessage(emailMessage);
+      // Handle email doesn't exist
+      let gmailMessage: gmail_v1.Schema$Message;
+      try {
+        gmailMessage = await gmailService.getMessage(id);
+      } catch (err) {
+        if (err instanceof Error) {
+          console.error(err.message);
+        }
+        continue;
+      }
+      try {
+        // Process the email message
+        await corebridgeProcessorService.processMessage(gmailMessage);
+      } catch (err) {
+        if (err instanceof Error) {
+          console.error(err.message);
+        }
+        continue;
+      }
     }
   }
 

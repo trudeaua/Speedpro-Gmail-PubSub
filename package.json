@@ -13,7 +13,6 @@
   },
   "author": "alex@speedproerinmills.ca",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.556.0",
     "@aws-sdk/client-secrets-manager": "^3.556.0",

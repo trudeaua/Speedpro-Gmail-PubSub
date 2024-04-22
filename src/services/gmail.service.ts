@@ -28,6 +28,12 @@ export interface ParsedMessage {
   date?: string;
 }
 
+enum GmailLabel {
+  Inbox = 'INBOX',
+  CorebridgeNewEstimate = 'Label_5415779246622422776',
+  CorebridgeNewCustomer = 'Label_7768171455975678404'
+}
+
 /**
  * A service to interact with Gmail API.
  */
@@ -135,12 +141,13 @@ export class GmailService {
    * @return {Promise<void>} A promise that resolves when the watch is set up.
    */
   public async watchUser(): Promise<gmail_v1.Schema$WatchResponse> {
+    const labelIds = [GmailLabel.CorebridgeNewCustomer, GmailLabel.CorebridgeNewEstimate];
     return new Promise<gmail_v1.Schema$WatchResponse>((resolve, reject) => {
       this.gmail.users.watch(
         {
           userId: 'me',
           requestBody: {
-            labelIds: ['INBOX'],
+            labelIds,
             topicName: process.env.GCP_PUBSUB_TOPIC
           }
         },
