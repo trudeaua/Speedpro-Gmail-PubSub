@@ -96,7 +96,7 @@ export class CorebridgeProcessorService {
     const headers: Record<string, string> = {};
     for (const label of labels) {
       // eslint-disable-next-line no-useless-escape
-      const re = new RegExp(`${label}:\s*(.*?)\n`);
+      const re = new RegExp(`${label}:\s*(.*?)\r{0,1}\n`);
       // eslint-disable-next-line no-useless-escape
       const match = re.exec(content);
       if (match) {
