@@ -141,3 +141,13 @@ functions:
 #     NewOutput:
 #       Description: "Description for the output"
 #       Value: "Some output value"
+resources:
+  Resources:
+    WebhookLogGroup:
+      Type: "AWS::Logs::LogGroup"
+      Properties:
+        RetentionInDays: "7"
+    WatcherLogGroup:
+      Type: "AWS::Logs::LogGroup"
+      Properties:
+        RetentionInDays: "7"
