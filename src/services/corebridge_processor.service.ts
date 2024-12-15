@@ -135,7 +135,7 @@ export class CorebridgeProcessorService {
     // The directory will be nested in "Client Files/<beginsWith>/<customer>/"
     // The sub-folders "<beginsWith>" and "<customer>" will be created if they don't exist.
     // This function call is asynchronous and returns a promise that resolves when the directory is created.
-    await this.driveService.createSubFolders([beginsWith, customer]);
+    await this.driveService.createFolders([beginsWith, customer]);
   }
 
   /**
@@ -171,10 +171,10 @@ export class CorebridgeProcessorService {
     }
     const directory = [beginsWith, customer, dirName];
 
-    // Create the directory and subdirectories
-    await this.driveService.createSubFolders([...directory]);
+    // Create the root directory
+    await this.driveService.createFolders([...directory]);
 
-    const subfolders: Record<string, string[]> = {
+    const folders: Record<string, string[]> = {
       '1_Artwork': ['Assets'],
       '2_Permits': [],
       '3_Photos': ['Survey', 'Progress', 'Completion'],
@@ -182,18 +182,21 @@ export class CorebridgeProcessorService {
       '5_Quotes': []
     };
 
-    // Create the subdirectories
-    for (const subfolder in subfolders) {
-      const hasSubfolders = subfolders[subfolder].length > 0;
-      if (hasSubfolders) {
+    // Create second layer of folders
+    await Promise.all(
+      Object.keys(folders).map(async (folder) => {
+        await this.driveService.createFolders([...directory, folder]);
+      })
+    );
+
+    // Create third layer of folders
+    await Promise.all(
+      Object.keys(folders).map(async (folder) => {
         // If there are subfolders, create the folder and its subfolders
-        for (const subsubfolder of subfolders[subfolder]) {
-          await this.driveService.createSubFolders([...directory, subfolder, subsubfolder]);
+        for (const subfolder of folders[folder]) {
+          await this.driveService.createFolders([...directory, folder, subfolder]);
         }
-      } else {
-        // Otherwise just create the folder
-        await this.driveService.createSubFolders([...directory, subfolder]);
-      }
-    }
+      })
+    );
   }
 }

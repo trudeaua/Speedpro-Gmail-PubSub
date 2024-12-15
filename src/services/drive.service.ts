@@ -26,11 +26,12 @@ export class DriveService {
     return folderName.replace(/[^a-zA-Z0-9\s_-]/g, '');
   }
 
-  public async createSubFolders(folderNames: string[], parentFolderId: string = this.DRIVE_ID): Promise<void> {
+  public async createFolders(folderNames: string[], parentFolderId: string = this.DRIVE_ID): Promise<void> {
     const folderName = folderNames.at(0);
     if (!folderName) {
       return;
     }
+    DriveService.debugLog(`Creating folders ${folderNames.toString()}`);
 
     const folder = await this.checkAndCreateFolder(parentFolderId, folderName);
     if (!folder.id) {
@@ -38,7 +39,7 @@ export class DriveService {
     }
 
     const subFolderNames = folderNames.slice(1);
-    await this.createSubFolders(subFolderNames, folder.id);
+    await this.createFolders(subFolderNames, folder.id);
   }
 
   private async checkAndCreateFolder(parentFolderId: string, folderName: string): Promise<drive_v3.Schema$File> {
