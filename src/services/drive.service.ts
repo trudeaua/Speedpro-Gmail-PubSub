@@ -1,70 +1,61 @@
 import type { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
 import type { drive_v3 } from 'googleapis/build/src/apis/drive/v3';
+import util from 'util';
 
 /**
  * DriveService provides methods to interact with Google Drive API.
  */
 export class DriveService {
-  /**
-   * Google Drive API client.
-   */
   private readonly drive: drive_v3.Drive;
-  /**
-   * Drive ID to operate on.
-   */
   private readonly DRIVE_ID: string;
+  private readonly folderCache: Map<string, drive_v3.Schema$File>;
 
-  /**
-   * Constructs a new DriveService instance.
-   * @param auth - OAuth2 client.
-   */
-  public constructor(auth: OAuth2Client) {
+  public constructor(auth: OAuth2Client, folderCache: Map<string, drive_v3.Schema$File>) {
     this.drive = google.drive({ version: 'v3', auth });
     this.DRIVE_ID = process.env.DRIVE_ID ?? '';
+    this.folderCache = folderCache;
   }
 
-  /**
-   * Creates subfolders recursively.
-   * @param folderNames - Names of folders to create.
-   * @param currentFolderId - ID of the current folder to create subfolders in. Defaults to DRIVE_ID.
-   * @returns Promise that resolves when all subfolders are created.
-   */
-  public async createSubFolders(folderNames: string[], currentFolderId = this.DRIVE_ID): Promise<void> {
-    // Extract first folder name
+  private static debugLog(message: string, ...params: unknown[]): void {
+    const debug = util.debuglog('DRIVE_SERVICE');
+    debug(message, params);
+  }
+
+  private static sanitizeFolderName(folderName: string): string {
+    return folderName.replace(/[^a-zA-Z0-9\s_-]/g, '');
+  }
+
+  public async createSubFolders(folderNames: string[], parentFolderId: string = this.DRIVE_ID): Promise<void> {
     const folderName = folderNames.at(0);
-    // Return if there is no folder name
     if (!folderName) {
       return;
     }
-    // Prepare parents list
-    const parents = [currentFolderId];
-    // Get folder
-    let folder = await this.getFolder(folderName, parents);
-    // Create folder if it does not exist
-    if (!folder) {
-      folder = await this.createFolder(folderName, parents);
-      // Throw error if folder creation fails
-      if (!folder.id) {
-        throw new Error(`Failed to create ${folderName}`);
-      }
-      console.log(`${folderName} created`);
+
+    const folder = await this.checkAndCreateFolder(parentFolderId, folderName);
+    if (!folder.id) {
+      throw new Error(`Failed to create ${folderName}`);
     }
-    // Call createSubFolders recursively on the rest of folder names
+
     const subFolderNames = folderNames.slice(1);
-    await this.createSubFolders(subFolderNames, folder.id ?? currentFolderId);
+    await this.createSubFolders(subFolderNames, folder.id);
   }
 
-  /**
-   * Get a folder by name and parents.
-   * @param name - Name of the folder.
-   * @param parents - List of parent folder IDs.
-   * @returns Promise that resolves with the found folder, or undefined if not found.
-   */
-  private async getFolder(name: string, parents: string[]): Promise<drive_v3.Schema$File | undefined> {
-    const query = `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false and ${parents
-      .map((parent) => `'${parent}' in parents`)
-      .join(' and ')}`;
+  private async checkAndCreateFolder(parentFolderId: string, folderName: string): Promise<drive_v3.Schema$File> {
+    const cleanFolderName = DriveService.sanitizeFolderName(folderName);
+    const cacheKey = `${parentFolderId}-${cleanFolderName}`;
+    DriveService.debugLog(`Checking cache for ${cacheKey}`);
+    // Check the cache for the folder
+    if (this.folderCache.has(cacheKey)) {
+      DriveService.debugLog(`${cleanFolderName} exists in cache. Retrieved.`);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return this.folderCache.get(cacheKey)!;
+    } else {
+      DriveService.debugLog(`${cleanFolderName} not in cache. Checking drive...`);
+    }
+
+    // If not in cache, check the drive
+    const query = `mimeType = 'application/vnd.google-apps.folder' and name = '${cleanFolderName}' and '${parentFolderId}' in parents and trashed = false`;
     const response = await this.drive.files.list({
       q: query,
       fields: 'nextPageToken, files(id, name, parents)',
@@ -73,38 +64,29 @@ export class DriveService {
       corpora: 'drive',
       supportsAllDrives: true
     });
-    return response.data.files?.find((file) => file.name === name);
-  }
-
-  /**
-   * Create a folder.
-   * @param name - Name of the folder.
-   * @param parents - List of parent folder IDs.
-   * @returns Promise that resolves with the created folder.
-   */
-  private async createFolder(name: string, parents: string[]): Promise<drive_v3.Schema$File> {
-    return new Promise<drive_v3.Schema$File>((resolve, reject) => {
-      this.drive.files
-        .create({
-          requestBody: {
-            name,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: parents
-          },
-          fields: 'id',
-          supportsAllDrives: true
-        })
-        .then((res) => {
-          resolve(res.data);
-        })
-        .catch((err) => {
-          if (err instanceof Error) {
-            reject(err);
-            return;
-          }
-          console.error(err);
-          return;
-        });
+    const existingFolders = response.data.files;
+    if (existingFolders?.length) {
+      const [folder] = existingFolders;
+      DriveService.debugLog(`${cleanFolderName} exists. Retrieved.`);
+      // Update cache
+      this.folderCache.set(cacheKey, folder);
+      return folder;
+    }
+    DriveService.debugLog(`${cleanFolderName} does not exist in drive. Creating...`);
+    // Else create the folder
+    const folderMetadata: drive_v3.Schema$File = {
+      name: cleanFolderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentFolderId]
+    };
+    const folder = await this.drive.files.create({
+      requestBody: folderMetadata,
+      fields: 'id',
+      supportsAllDrives: true
     });
+    DriveService.debugLog(`${cleanFolderName} created.`);
+    // Update cache
+    this.folderCache.set(cacheKey, folder.data);
+    return folder.data;
   }
 }

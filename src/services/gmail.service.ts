@@ -30,15 +30,14 @@ export interface ParsedMessage {
 
 enum GmailLabel {
   Inbox = 'INBOX',
-  CorebridgeNewEstimate = 'Label_5415779246622422776',
-  CorebridgeNewCustomer = 'Label_7768171455975678404'
+  CorebridgeAlert = 'Label_5415779246622422776'
 }
 
 /**
  * A service to interact with Gmail API.
  */
 export class GmailService {
-  private readonly labelIds = [GmailLabel.CorebridgeNewCustomer, GmailLabel.CorebridgeNewEstimate];
+  private readonly labelIds = [GmailLabel.CorebridgeAlert];
   /**
    * The Gmail API client.
    */

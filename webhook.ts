@@ -1,7 +1,7 @@
 import type { PutObjectCommandOutput } from '@aws-sdk/client-s3';
 import type { APIGatewayEvent } from 'aws-lambda';
 import dotenv from 'dotenv';
-import type { gmail_v1 } from 'googleapis';
+import type { drive_v3, gmail_v1 } from 'googleapis';
 
 import { AuthService } from '@services/auth.service';
 import { CorebridgeProcessorService } from '@services/corebridge_processor.service';
@@ -12,6 +12,8 @@ dotenv.config();
 
 const stateFileName = 'state.json';
 
+const folderCache = new Map<string, drive_v3.Schema$File>();
+const messageCache = new Map<string, gmail_v1.Schema$Message>();
 /**
  * Retrieves the history id from the state file.
  *
@@ -95,7 +97,7 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
   // Create authentication and file service instances
   const authService = new AuthService();
   const auth = await authService.authorize();
-  const corebridgeProcessorService = new CorebridgeProcessorService(auth);
+  const corebridgeProcessorService = new CorebridgeProcessorService(auth, folderCache);
   const gmailService = new GmailService(auth);
   const fileService = new FileService();
 
@@ -114,10 +116,21 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
     if (!messagesAdded) continue;
     for (const { message } of messagesAdded) {
       if (!message?.id) continue;
+      // Try to prevent the same message from being processed more than once
+      if (messageCache.has(message.id)) {
+        console.log(`Message ${message.id} has already been received. Skipping.`);
+        continue;
+      } else {
+        messageCache.set(message.id, message);
+      }
       const { id, labelIds } = message;
+      console.log(`Processing message ${id} with labels ${labelIds?.join(', ')}`);
       // Check labels. Only process messages with a supported label
       const isValidLabel = (labelIds ?? []).some((labelId) => gmailService.getLabelIds().includes(labelId));
-      if (!isValidLabel) continue;
+      if (!isValidLabel) {
+        console.warn(`Message ${id} does not have a supported label. Skipping.`);
+        continue;
+      }
 
       // Handle email doesn't exist
       let gmailMessage: gmail_v1.Schema$Message;

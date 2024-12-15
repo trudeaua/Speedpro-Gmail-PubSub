@@ -1,35 +1,34 @@
 import dayjs from 'dayjs';
 import type { OAuth2Client } from 'google-auth-library';
+import type { drive_v3 } from 'googleapis';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
 import { DriveService } from '@services/drive.service';
 import type { ParsedMessage } from '@services/gmail.service';
 import { GmailService } from '@services/gmail.service';
 
+type ContentHeader =
+  | 'Alert'
+  | 'Customer'
+  | 'Description'
+  | 'Event'
+  | 'METADATA_DATE'
+  | 'Occurred'
+  | 'Reference #'
+  | 'Salesperson'
+  | 'SubTotal Price';
+class ContentHeaders extends Map<ContentHeader, string> {}
+
+enum CorebridgeAlert {
+  NewCustomer = 'New Customer',
+  NewEstimate = 'New Estimate',
+  NewOrder = 'New Order'
+}
+
 export class CorebridgeProcessorService {
   private readonly driveService: DriveService;
-  public constructor(auth: OAuth2Client) {
-    this.driveService = new DriveService(auth);
-  }
-
-  /**
-   * Checks if the given message is a new customer message.
-   *
-   * @param {ParsedMessage} message - The parsed email message.
-   * @return {boolean} True if the message is a new customer message, false otherwise.
-   */
-  private static isNewCustomer(message: ParsedMessage): boolean {
-    return message.subject === 'New Customer';
-  }
-
-  /**
-   * Checks if the given message is a new estimate message.
-   *
-   * @param {ParsedMessage} message - The parsed email message.
-   * @return {boolean} True if the message is a new estimate message, false otherwise.
-   */
-  private static isNewEstimate(message: ParsedMessage): boolean {
-    return message.subject === 'New Estimate';
+  public constructor(auth: OAuth2Client, folderCache: Map<string, drive_v3.Schema$File>) {
+    this.driveService = new DriveService(auth, folderCache);
   }
 
   /**
@@ -43,22 +42,13 @@ export class CorebridgeProcessorService {
    */
   private static isValidMessage(message: ParsedMessage): boolean {
     // Whitelisted email addresses from which valid messages can come.
-    const emailWhitelist = [
-      'alert@corebridge.net',
-      'jeff@speedproerinmills.ca',
-      'alex@speedproerinmills.ca',
-      'alextrudeau97@gmail.com'
-    ];
+    const emailWhitelist = ['alert@corebridge.net'];
 
     // Check if the message comes from a whitelisted email address.
     const isValidFrom = Boolean(message.from && emailWhitelist.some((email) => (message.from ?? '').includes(email)));
 
-    // Check if the message is a new customer message or a new estimate message.
-    const isValidSubject =
-      CorebridgeProcessorService.isNewCustomer(message) || CorebridgeProcessorService.isNewEstimate(message);
-
     // Return true if the message is valid, false otherwise.
-    return isValidFrom && isValidSubject;
+    return isValidFrom;
   }
 
   /**
@@ -82,7 +72,7 @@ export class CorebridgeProcessorService {
     }
 
     // Parse the headers of the message.
-    const labels = [
+    const labels: ContentHeader[] = [
       'Alert',
       'Customer',
       'Reference #',
@@ -93,42 +83,47 @@ export class CorebridgeProcessorService {
       'Occurred'
     ];
 
-    const headers: Record<string, string> = {};
+    const headers = new ContentHeaders();
     for (const label of labels) {
       // eslint-disable-next-line no-useless-escape
       const re = new RegExp(`${label}:\s*(.*?)\r{0,1}\n`);
       // eslint-disable-next-line no-useless-escape
       const match = re.exec(content);
       if (match) {
-        headers[label] = match[1].trim().replace(/<pre>|<\/pre>/g, '');
+        const key = label;
+        const value = match[1].trim().replace(/<pre>|<\/pre>/g, '');
+        headers.set(key, value);
       }
     }
 
     // Append the date from the message metadata to the headers.
-    headers.METADATA_DATE = date;
+    headers.set('METADATA_DATE', date);
 
-    // Process the message as a new customer if applicable.
-    if (CorebridgeProcessorService.isNewCustomer(parsedMessage)) {
-      await this.processNewCustomer(headers);
-    }
-
-    // Process the message as a new estimate if applicable.
-    if (CorebridgeProcessorService.isNewEstimate(parsedMessage)) {
-      await this.processNewEstimate(headers);
+    // Process the message based on the alert type
+    const alert = headers.get('Alert');
+    switch (alert) {
+      case CorebridgeAlert.NewCustomer:
+        return this.processNewCustomer(headers);
+      case CorebridgeAlert.NewOrder:
+      case CorebridgeAlert.NewEstimate:
+        return this.processNewEstimate(headers);
+      default:
+        console.warn(`Invalid alert "${alert}". Skipping`);
+        break;
     }
   }
 
   /**
    * Process a new customer message and create a directory for their client files in Google Drive.
    *
-   * @param {Record<string, string>} headers - The headers of the message.
+   * @param {ContentHeaders} headers - The headers of the message.
    * @return {Promise<void>} A promise that resolves when the directory is created.
    */
-  private async processNewCustomer(headers: Record<string, string>): Promise<void> {
+  private async processNewCustomer(headers: ContentHeaders): Promise<void> {
     // Extract the customer name from the headers.
-    const customer = headers.Customer;
+    const customer = headers.get('Customer');
     // Extract the first character of the customer name and convert it to uppercase.
-    const beginsWith = customer.at(0)?.toUpperCase();
+    const beginsWith = customer?.at(0)?.toUpperCase();
 
     // Log a warning and skip the message if the customer name is invalid.
     if (!customer || !beginsWith) {
@@ -146,15 +141,15 @@ export class CorebridgeProcessorService {
   /**
    * Process a new estimate message and create a directory and subdirectories for the estimate files in Google Drive.
    *
-   * @param {Record<string, string>} headers - The headers of the message.
+   * @param {ContentHeaders} headers - The headers of the message.
    * @return {Promise<void>} A promise that resolves when the directory and subdirectories are created.
    */
-  private async processNewEstimate(headers: Record<string, string | undefined>): Promise<void> {
+  private async processNewEstimate(headers: ContentHeaders): Promise<void> {
     // Extract the required headers
-    const customer = headers.Customer;
-    const occurred = headers.METADATA_DATE ?? headers.Occurred;
-    const reference = headers['Reference #']?.split('-')[1];
-    const description = headers.Description;
+    const customer = headers.get('Customer');
+    const occurred = headers.get('METADATA_DATE') ?? headers.get('Occurred');
+    const reference = headers.get('Reference #')?.split('-')[1];
+    const description = headers.get('Description');
 
     // Log a warning and skip the message if any of the required headers are invalid.
     if (!customer || !occurred || !reference || !description) {
@@ -177,7 +172,6 @@ export class CorebridgeProcessorService {
     const directory = [beginsWith, customer, dirName];
 
     // Create the directory and subdirectories
-    console.log(customer, dirName);
     await this.driveService.createSubFolders([...directory]);
 
     const subfolders: Record<string, string[]> = {
