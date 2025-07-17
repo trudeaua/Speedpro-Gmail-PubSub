@@ -106,7 +106,8 @@ export class GmailService {
     return this.gmail.users.history.list({
       userId: 'me',
       startHistoryId,
-      maxResults: 10
+      maxResults: 500,
+      historyTypes: ['messageAdded']
     });
   }
 
@@ -117,54 +118,28 @@ export class GmailService {
    * @return {Promise<gmail_v1.Schema$Message>} A promise that resolves to the message.
    */
   public async getMessage(messageId: string): Promise<gmail_v1.Schema$Message> {
-    const response = await new Promise<gmail_v1.Schema$Message>((resolve, reject) => {
-      this.gmail.users.messages
-        .get({
-          userId: 'me',
-          id: messageId
-        })
-        .then((res) => {
-          resolve(res.data);
-          return;
-        })
-        .catch((err) => {
-          if (err instanceof Error) {
-            reject(err);
-            return;
-          }
-          console.error(err);
-          return;
-        });
+    const response = await this.gmail.users.messages.get({
+      userId: 'me',
+      id: messageId
     });
-    return response;
+    return response.data;
   }
 
   /**
    * Watches for changes in the Gmail inbox and notifies to a Pub/Sub topic.
    *
-   * @return {Promise<void>} A promise that resolves when the watch is set up.
+   * @returns {Promise<gmail_v1.Schema$WatchResponse>} A promise that resolves to the watch response.
    */
   public async watchUser(): Promise<gmail_v1.Schema$WatchResponse> {
-    return new Promise<gmail_v1.Schema$WatchResponse>((resolve, reject) => {
-      this.gmail.users.watch(
-        {
-          userId: 'me',
-          requestBody: {
-            labelIds: this.labelIds,
-            topicName: process.env.GCP_PUBSUB_TOPIC
-          }
-        },
-        (err, res) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          if (res) {
-            resolve(res.data);
-            return;
-          }
-        }
-      );
+    const response = await this.gmail.users.watch({
+      userId: 'me',
+      requestBody: {
+        labelIds: this.labelIds,
+        topicName: process.env.GCP_PUBSUB_TOPIC,
+        labelFilterBehavior: 'include'
+      }
     });
+    console.log(response.data);
+    return response.data;
   }
 }

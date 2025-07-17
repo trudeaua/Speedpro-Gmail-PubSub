@@ -93,8 +93,6 @@ function parseEvent(event: APIGatewayEvent): {
  * @returns {Promise<Object>} - A Promise that resolves to an object with a statusCode and a body.
  */
 export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: number; body: string }> => {
-  const isDebug = Boolean(process.env.NODE_DEBUG);
-
   console.log(event);
   // Create authentication and file service instances
   const authService = new AuthService();
@@ -129,7 +127,7 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
       console.log(`Processing message ${id} with labels ${labelIds?.join(', ')}`);
       // Check labels. Only process messages with a supported label
       const isValidLabel = (labelIds ?? []).some((labelId) => gmailService.getLabelIds().includes(labelId));
-      if (!isValidLabel && !isDebug) {
+      if (!isValidLabel ) {
         console.warn(`Message ${id} does not have a supported label. Skipping.`);
         continue;
       }

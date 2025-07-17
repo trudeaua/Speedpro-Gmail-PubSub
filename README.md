@@ -16,7 +16,7 @@ After successful authentication, a token for the Google auth result should have 
 7. Deploy Serverless framework
 
 ```
-yarn sls package && yarn sls deploy
+yarn sls deploy
 ```
 
 After running this, 2 functions should have been created in AWS Lambda: `webhook` and `watcher`

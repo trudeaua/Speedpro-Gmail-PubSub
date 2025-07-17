@@ -23,7 +23,7 @@ export class DriveService {
   }
 
   private static sanitizeFolderName(folderName: string): string {
-    return folderName.replace(/[^a-zA-Z0-9\s_-]/g, '');
+    return folderName.replace(/[^a-zA-Z0-9\s._-]/g, '');
   }
 
   public async createFolders(folderNames: string[], parentFolderId: string = this.DRIVE_ID): Promise<void> {
