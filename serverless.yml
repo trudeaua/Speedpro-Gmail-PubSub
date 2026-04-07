@@ -78,6 +78,8 @@ provider:
     S3_STATE_BUCKET: ${env:S3_STATE_BUCKET}
     GMAIL_LABEL_IDS: ${env:GMAIL_LABEL_IDS}
     ALERT_EMAIL_WHITELIST: ${env:ALERT_EMAIL_WHITELIST}
+    SQS_QUEUE_URL:
+      Ref: GmailPubSubQueue
 
 package:
   patterns:
