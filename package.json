@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "build": "etsc",
     "deploy": "serverless deploy",
     "start": "serverless offline start",
@@ -22,17 +22,19 @@
     "googleapis": "^171.4.0"
   },
   "devDependencies": {
-    "@google-cloud/local-auth": "^3.0.1",
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
     "@types/aws-lambda": "^8.10.161",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.39",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.1",
+    "jest": "^30.3.0",
     "prettier": "3.8.1",
     "serverless": "^3.40.0",
     "serverless-bundle": "^6.3.1",
     "serverless-offline": "^13.9.0",
+    "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "typescript": "5.9.3"
   }
