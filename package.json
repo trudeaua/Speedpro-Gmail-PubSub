@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "test": "jest",
+    "test": "node --max-old-space-size=4096 node_modules/.bin/jest",
     "build": "etsc",
     "deploy": "serverless deploy",
     "start": "serverless offline start",

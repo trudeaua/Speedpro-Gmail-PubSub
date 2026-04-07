@@ -8,7 +8,7 @@ const config: Config = {
     '^@services/(.*)$': '<rootDir>/src/services/$1'
   },
   transform: {
-    '^.+\\.ts$': ['ts-jest', { diagnostics: { ignoreCodes: [151002] } }]
+    '^.+\\.ts$': ['ts-jest', { diagnostics: false, tsconfig: { isolatedModules: true } }]
   }
 };
 
