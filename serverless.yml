@@ -45,6 +45,12 @@ provider:
     role:
       managedPolicies:
         - arn:aws:iam::698111267608:policy/GmailPubSubRuntimePolicy
+      statements:
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource:
+            Fn::GetAtt: [GmailPubSubQueue, Arn]
   #      statements:
   #        - Effect: "Allow"
   #          Action:
@@ -83,14 +89,24 @@ package:
 
 functions:
   webhook:
-    timeout: 120
-    memorySize: 832
+    timeout: 30
+    memorySize: 256
     handler: webhook.handler
     events:
       - http:
           path: /pubsub
           method: POST
           async: true
+  processor:
+    timeout: 120
+    memorySize: 832
+    handler: processor.handler
+    reservedConcurrency: 1
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [GmailPubSubQueue, Arn]
+          batchSize: 1
   watcher:
     timeout: 30
     memorySize: 256
@@ -157,6 +173,25 @@ resources:
       Properties:
         RetentionInDays: "7"
     WatcherLogGroup:
+      Type: "AWS::Logs::LogGroup"
+      Properties:
+        RetentionInDays: "7"
+    GmailPubSubDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: gmail-pubsub-dlq
+        MessageRetentionPeriod: 1209600
+    GmailPubSubQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: gmail-pubsub-queue
+        VisibilityTimeout: 120
+        MessageRetentionPeriod: 86400
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [GmailPubSubDLQ, Arn]
+          maxReceiveCount: 3
+    ProcessorLogGroup:
       Type: "AWS::Logs::LogGroup"
       Properties:
         RetentionInDays: "7"
