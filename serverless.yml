@@ -17,6 +17,10 @@ useDotenv: true
 plugins:
   - serverless-bundle
   - serverless-offline
+
+custom:
+  bundle:
+    linting: false
 # app and org for use with dashboard.serverless.com
 #app: your-app-name
 #org: your-org-name
