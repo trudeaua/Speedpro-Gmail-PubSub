@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import type { OAuth2Client } from 'google-auth-library';
+import type { JWT } from 'google-auth-library';
 import type { drive_v3 } from 'googleapis';
 import type { gmail_v1 } from 'googleapis/build/src/apis/gmail/v1';
 
@@ -27,7 +27,7 @@ enum CorebridgeAlert {
 
 export class CorebridgeProcessorService {
   private readonly driveService: DriveService;
-  public constructor(auth: OAuth2Client, folderCache: Map<string, drive_v3.Schema$File>) {
+  public constructor(auth: JWT, folderCache: Map<string, drive_v3.Schema$File>) {
     this.driveService = new DriveService(auth, folderCache);
   }
 
@@ -42,7 +42,7 @@ export class CorebridgeProcessorService {
    */
   private static isValidMessage(message: ParsedMessage): boolean {
     // Whitelisted email addresses from which valid messages can come.
-    const emailWhitelist = ['alert@corebridge.net'];
+    const emailWhitelist = (process.env.ALERT_EMAIL_WHITELIST ?? '').split(',').filter(Boolean);
 
     // Check if the message comes from a whitelisted email address.
     const isValidFrom = Boolean(message.from && emailWhitelist.some((email) => (message.from ?? '').includes(email)));
@@ -109,7 +109,7 @@ export class CorebridgeProcessorService {
         return this.processNewEstimate(headers);
       default:
         console.warn(`Invalid alert "${alert}". Skipping`);
-        break;
+        return;
     }
   }
 

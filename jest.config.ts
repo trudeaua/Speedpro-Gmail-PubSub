@@ -6,6 +6,9 @@ const config: Config = {
   roots: ['<rootDir>/src'],
   moduleNameMapper: {
     '^@services/(.*)$': '<rootDir>/src/services/$1'
+  },
+  transform: {
+    '^.+\\.ts$': ['ts-jest', { diagnostics: { ignoreCodes: [151002] } }]
   }
 };
 

@@ -63,6 +63,11 @@ provider:
     NODE_ENV: ${opt:stage, 'production'}
     GCP_PUBSUB_TOPIC: ${env:GCP_PUBSUB_TOPIC}
     DRIVE_ID: ${env:DRIVE_ID}
+    GOOGLE_IMPERSONATE_EMAIL: ${env:GOOGLE_IMPERSONATE_EMAIL}
+    SECRET_TOKEN_ID: ${env:SECRET_TOKEN_ID}
+    S3_STATE_BUCKET: ${env:S3_STATE_BUCKET}
+    GMAIL_LABEL_IDS: ${env:GMAIL_LABEL_IDS}
+    ALERT_EMAIL_WHITELIST: ${env:ALERT_EMAIL_WHITELIST}
 
 # you can add packaging information here
 #package:

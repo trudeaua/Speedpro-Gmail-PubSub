@@ -14,7 +14,7 @@ export class FileService {
   /**
    * Name of the S3 bucket used for storing files.
    */
-  private readonly bucket = 'gmailpubsub-state';
+  private readonly bucket = process.env.S3_STATE_BUCKET ?? '';
 
   /**
    * Creates a new FileService instance.

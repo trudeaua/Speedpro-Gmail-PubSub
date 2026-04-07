@@ -1,4 +1,4 @@
-import type { OAuth2Client } from 'google-auth-library';
+import type { JWT } from 'google-auth-library';
 import type { gmail_v1 } from 'googleapis';
 import { google } from 'googleapis';
 
@@ -27,16 +27,11 @@ export interface ParsedMessage {
   date?: string;
 }
 
-enum GmailLabel {
-  Inbox = 'INBOX',
-  CorebridgeAlert = 'Label_5415779246622422776'
-}
-
 /**
  * A service to interact with Gmail API.
  */
 export class GmailService {
-  private readonly labelIds = [GmailLabel.CorebridgeAlert];
+  private readonly labelIds = (process.env.GMAIL_LABEL_IDS ?? '').split(',').filter(Boolean);
   /**
    * The Gmail API client.
    */
@@ -45,9 +40,9 @@ export class GmailService {
   /**
    * Constructs a GmailService instance.
    *
-   * @param {OAuth2Client} auth - The OAuth2 client for authentication.
+   * @param {JWT} auth - The JWT client for authentication.
    */
-  public constructor(auth: OAuth2Client) {
+  public constructor(auth: JWT) {
     this.gmail = google.gmail({ version: 'v1', auth });
   }
 
@@ -101,6 +96,7 @@ export class GmailService {
    * @param {string} startHistoryId - The id of the start history.
    * @return {Promise<gmail_v1.Schema$ListHistoryResponse>} A promise that resolves to the list of history messages.
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
   public async listHistory(startHistoryId: string) {
     return this.gmail.users.history.list({
       userId: 'me',

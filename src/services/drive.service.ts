@@ -1,4 +1,4 @@
-import type { OAuth2Client } from 'google-auth-library';
+import type { JWT } from 'google-auth-library';
 import { google } from 'googleapis';
 import type { drive_v3 } from 'googleapis/build/src/apis/drive/v3';
 import util from 'util';
@@ -11,7 +11,7 @@ export class DriveService {
   private readonly DRIVE_ID: string;
   private readonly folderCache: Map<string, drive_v3.Schema$File>;
 
-  public constructor(auth: OAuth2Client, folderCache: Map<string, drive_v3.Schema$File>) {
+  public constructor(auth: JWT, folderCache: Map<string, drive_v3.Schema$File>) {
     this.drive = google.drive({ version: 'v3', auth });
     this.DRIVE_ID = process.env.DRIVE_ID ?? '';
     this.folderCache = folderCache;
