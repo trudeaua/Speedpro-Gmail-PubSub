@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2015",
+    "target": "ES2022",
     "module": "Node16",
     "allowJs": true,
     "removeComments": true,
@@ -9,7 +9,7 @@
     "sourceMap": true,
     "outDir": "dist",
     "strict": true,
-    "lib": ["ES2020", "dom"],
+    "lib": ["ES2023", "dom"],
     "baseUrl": ".",
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,

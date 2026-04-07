@@ -51,17 +51,17 @@ export class AuthService {
       }
 
       // Authenticate with the Google Cloud API to obtain the credentials
-      client = await authenticate({
+      client = (await authenticate({
         scopes: this.scopes,
         keyfilePath: this.credentialsPath
-      });
+      })) as unknown as OAuth2Client;
 
       // If the credentials exist, save them in the secrets manager
       await this.saveCredentials(client);
     }
 
     // Return the obtained or loaded credentials
-    return client;
+    return client!;
   }
 
   /**

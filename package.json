@@ -14,26 +14,26 @@
   "author": "alex@speedproerinmills.ca",
   "license": "ISC",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.556.0",
-    "@aws-sdk/client-secrets-manager": "^3.556.0",
+    "@aws-sdk/client-s3": "^3.1025.0",
+    "@aws-sdk/client-secrets-manager": "^3.1025.0",
     "aws-lambda": "^1.0.7",
-    "dayjs": "^1.11.10",
+    "dayjs": "^1.11.20",
     "dotenv": "^16.4.5",
-    "googleapis": "^134.0.0"
+    "googleapis": "^171.4.0"
   },
   "devDependencies": {
     "@google-cloud/local-auth": "^3.0.1",
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
-    "@types/aws-lambda": "^8.10.137",
-    "@types/node": "^20.12.7",
-    "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "@typescript-eslint/parser": "^6.7.4",
-    "eslint": "^7.32.0",
-    "prettier": "3.2.5",
-    "serverless": "^3.38.0",
-    "serverless-bundle": "^6.1.0",
-    "serverless-offline": "^12.0.4",
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^20.19.39",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "prettier": "3.8.1",
+    "serverless": "^3.40.0",
+    "serverless-bundle": "^6.3.1",
+    "serverless-offline": "^13.9.0",
     "ts-node": "^10.9.2",
-    "typescript": "5.3.3"
+    "typescript": "5.9.3"
   }
 }

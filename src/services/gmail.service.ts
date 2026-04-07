@@ -1,7 +1,6 @@
 import type { OAuth2Client } from 'google-auth-library';
 import type { gmail_v1 } from 'googleapis';
 import { google } from 'googleapis';
-import type { GaxiosPromise } from 'googleapis/build/src/apis/gmail';
 
 /**
  * Represents a parsed Gmail message.
@@ -102,7 +101,7 @@ export class GmailService {
    * @param {string} startHistoryId - The id of the start history.
    * @return {Promise<gmail_v1.Schema$ListHistoryResponse>} A promise that resolves to the list of history messages.
    */
-  public async listHistory(startHistoryId: string): GaxiosPromise<gmail_v1.Schema$ListHistoryResponse> {
+  public async listHistory(startHistoryId: string) {
     return this.gmail.users.history.list({
       userId: 'me',
       startHistoryId,
