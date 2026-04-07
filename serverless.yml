@@ -69,11 +69,11 @@ provider:
     GMAIL_LABEL_IDS: ${env:GMAIL_LABEL_IDS}
     ALERT_EMAIL_WHITELIST: ${env:ALERT_EMAIL_WHITELIST}
 
-# you can add packaging information here
-#package:
-#  patterns:
-#    - '!exclude-me.js'
-#    - '!exclude-me-dir/**'
+package:
+  patterns:
+    - '!src/services/__tests__/**'
+    - '!jest.config.ts'
+    - '!docs/**'
 #    - include-me.js
 #    - include-me-dir/**
 
