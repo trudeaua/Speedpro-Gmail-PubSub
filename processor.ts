@@ -60,7 +60,8 @@ async function updateStoredHistoryId(fileService: FileService, historyId: string
 export const handler = async (event: SQSEvent): Promise<void> => {
   // SQS event contains records; with batchSize 1 there's exactly one
   const record = event.Records[0];
-  const { historyId } = JSON.parse(record.body) as { emailAddress: string; historyId: string };
+  const { historyId: rawHistoryId } = JSON.parse(record.body) as { emailAddress: string; historyId: string | number };
+  const historyId = String(rawHistoryId);
 
   const authService = new AuthService();
   const auth = await authService.authorize();
@@ -119,8 +120,9 @@ export const handler = async (event: SQSEvent): Promise<void> => {
     throw new Error('One or more messages failed to process. SQS will retry.');
   }
 
-  await updateStoredHistoryId(fileService, historyId);
-  console.log(`State updated to historyId=${historyId}`);
+  const finalHistoryId = BigInt(historyId) > BigInt(startHistoryId) ? historyId : startHistoryId;
+  await updateStoredHistoryId(fileService, finalHistoryId);
+  console.log(`State updated to historyId=${finalHistoryId}`);
 
   boundCache(messageCache, MAX_CACHE_SIZE);
   boundCache(folderCache, MAX_CACHE_SIZE);
