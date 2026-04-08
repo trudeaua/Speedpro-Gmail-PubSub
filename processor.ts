@@ -73,7 +73,21 @@ export const handler = async (event: SQSEvent): Promise<void> => {
   const startHistoryId = await getStoredHistoryId(fileService);
   console.log(`Processing history from ${startHistoryId} to ${historyId}`);
 
-  const { data } = await gmailService.listHistory(startHistoryId);
+  let data: Awaited<ReturnType<typeof gmailService.listHistory>>['data'];
+  try {
+    ({ data } = await gmailService.listHistory(startHistoryId));
+  } catch (err) {
+    // Gmail returns 404 when historyId is too old (>30 days). Reset to current state.
+    if (err instanceof Error && 'code' in err && (err as { code: number }).code === 404) {
+      console.warn('History expired. Resetting to current historyId. Messages in the gap are lost.');
+      const profile = await gmailService.getProfile();
+      const currentHistoryId = String(profile.historyId);
+      await updateStoredHistoryId(fileService, currentHistoryId);
+      return;
+    }
+    throw err;
+  }
+
   const { history = [] } = data;
 
   let hasFailure = false;

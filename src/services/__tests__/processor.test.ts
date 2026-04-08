@@ -11,12 +11,14 @@ jest.mock('@services/auth.service', () => ({
 const mockGetMessage = jest.fn();
 const mockListHistory = jest.fn();
 const mockGetLabelIds = jest.fn().mockReturnValue(['INBOX']);
+const mockGetProfile = jest.fn();
 
 jest.mock('@services/gmail.service', () => ({
   GmailService: jest.fn().mockImplementation(() => ({
     getMessage: mockGetMessage,
     listHistory: mockListHistory,
-    getLabelIds: mockGetLabelIds
+    getLabelIds: mockGetLabelIds,
+    getProfile: mockGetProfile
   }))
 }));
 
@@ -133,6 +135,27 @@ describe('processor handler', () => {
     await expect(handler(makeSQSEvent('user@example.com', '200'))).rejects.toThrow(
       'One or more messages failed to process'
     );
+    expect(mockPutObject).not.toHaveBeenCalled();
+  });
+
+  it('recovers from expired history (404) by resetting to current historyId', async () => {
+    const error = new Error('Not Found') as Error & { code: number };
+    error.code = 404;
+    mockListHistory.mockRejectedValue(error);
+    mockGetProfile.mockResolvedValue({ historyId: '500' });
+
+    await handler(makeSQSEvent('user@example.com', '200'));
+
+    expect(mockGetProfile).toHaveBeenCalledTimes(1);
+    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '500' }));
+    expect(mockProcessMessage).not.toHaveBeenCalled();
+  });
+
+  it('rethrows non-404 errors from listHistory', async () => {
+    mockListHistory.mockRejectedValue(new Error('Server error'));
+
+    await expect(handler(makeSQSEvent('user@example.com', '200'))).rejects.toThrow('Server error');
+    expect(mockGetProfile).not.toHaveBeenCalled();
     expect(mockPutObject).not.toHaveBeenCalled();
   });
 

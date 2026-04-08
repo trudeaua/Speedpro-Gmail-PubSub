@@ -12,12 +12,14 @@ jest.mock('googleapis', () => ({
 const mockHistoryList = jest.fn();
 const mockMessagesGet = jest.fn();
 const mockUsersWatch = jest.fn();
+const mockGetProfile = jest.fn();
 
 (google.gmail as jest.Mock).mockReturnValue({
   users: {
     history: { list: mockHistoryList },
     messages: { get: mockMessagesGet },
-    watch: mockUsersWatch
+    watch: mockUsersWatch,
+    getProfile: mockGetProfile
   }
 });
 
@@ -31,7 +33,8 @@ describe('GmailService', () => {
       users: {
         history: { list: mockHistoryList },
         messages: { get: mockMessagesGet },
-        watch: mockUsersWatch
+        watch: mockUsersWatch,
+        getProfile: mockGetProfile
       }
     });
     gmailService = new GmailService({} as any);
@@ -119,6 +122,17 @@ describe('GmailService', () => {
         userId: 'me',
         id: 'msg1'
       });
+    });
+  });
+
+  describe('getProfile', () => {
+    it('returns the user profile', async () => {
+      mockGetProfile.mockResolvedValue({ data: { emailAddress: 'user@example.com', historyId: '500' } });
+
+      const result = await gmailService.getProfile();
+
+      expect(result).toEqual({ emailAddress: 'user@example.com', historyId: '500' });
+      expect(mockGetProfile).toHaveBeenCalledWith({ userId: 'me' });
     });
   });
 

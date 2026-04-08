@@ -91,6 +91,14 @@ export class GmailService {
   }
 
   /**
+   * Gets the authenticated user's Gmail profile, including the current historyId.
+   */
+  public async getProfile(): Promise<gmail_v1.Schema$Profile> {
+    const response = await this.gmail.users.getProfile({ userId: 'me' });
+    return response.data;
+  }
+
+  /**
    * Lists the Gmail message history.
    *
    * @param {string} startHistoryId - The id of the start history.
