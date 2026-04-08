@@ -103,7 +103,6 @@ functions:
     timeout: 120
     memorySize: 832
     handler: processor.handler
-    reservedConcurrency: 1
     events:
       - sqs:
           arn:

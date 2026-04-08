@@ -1,18 +1,21 @@
-import { google } from 'googleapis';
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { CorebridgeProcessorService } from '@services/corebridge_processor.service';
 
 jest.mock('googleapis', () => ({
   google: {
-    drive: jest.fn().mockReturnValue({
-      files: {
-        list: jest.fn().mockResolvedValue({ data: { files: [] } }),
-        create: jest.fn().mockResolvedValue({ data: { id: 'mock-id' } })
-      }
-    })
+    drive: jest
+      .fn()
+      .mockReturnValue({
+        files: {
+          list: jest.fn().mockResolvedValue({ data: { files: [] } }),
+          create: jest.fn().mockResolvedValue({ data: { id: 'mock-id' } })
+        }
+      })
   }
 }));
 
+// eslint-disable-next-line @typescript-eslint/max-params, @typescript-eslint/explicit-function-return-type
 function buildGmailMessage(from: string, subject: string, date: string, htmlBody: string) {
   return {
     payload: {
@@ -21,12 +24,7 @@ function buildGmailMessage(from: string, subject: string, date: string, htmlBody
         { name: 'Subject', value: subject },
         { name: 'Date', value: date }
       ],
-      parts: [
-        {
-          mimeType: 'text/html',
-          body: { data: Buffer.from(htmlBody).toString('base64') }
-        }
-      ]
+      parts: [{ mimeType: 'text/html', body: { data: Buffer.from(htmlBody).toString('base64') } }]
     }
   };
 }
@@ -39,6 +37,7 @@ describe('CorebridgeProcessorService', () => {
     jest.clearAllMocks();
     process.env.DRIVE_ID = 'test-drive-id';
     process.env.ALERT_EMAIL_WHITELIST = 'alert@corebridge.net';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     service = new CorebridgeProcessorService({} as any, new Map());
     mockCreateFolders = jest.spyOn((service as any).driveService, 'createFolders').mockResolvedValue(undefined);
   });
@@ -72,19 +71,19 @@ describe('CorebridgeProcessorService', () => {
     });
 
     it('routes New Estimate alert to estimate folder creation', async () => {
-      const body = 'Alert: New Estimate\nCustomer: Acme Corp\nReference #: EST-12345\nDescription: Sign Project\nOccurred: 2026-04-06\n';
+      const body =
+        'Alert: New Estimate\nCustomer: Acme Corp\nReference #: EST-12345\nDescription: Sign Project\nOccurred: 2026-04-06\n';
       const message = buildGmailMessage('alert@corebridge.net', 'New Estimate', '2026-04-06T12:00:00Z', body);
 
       await service.processMessage(message);
 
       expect(mockCreateFolders).toHaveBeenCalled();
-      expect(mockCreateFolders.mock.calls[0][0]).toEqual(
-        expect.arrayContaining(['A', 'Acme Corp'])
-      );
+      expect(mockCreateFolders.mock.calls[0][0]).toEqual(expect.arrayContaining(['A', 'Acme Corp']));
     });
 
     it('routes New Order alert to estimate folder creation', async () => {
-      const body = 'Alert: New Order\nCustomer: Acme Corp\nReference #: ORD-99999\nDescription: Banner\nOccurred: 2026-04-06\n';
+      const body =
+        'Alert: New Order\nCustomer: Acme Corp\nReference #: ORD-99999\nDescription: Banner\nOccurred: 2026-04-06\n';
       const message = buildGmailMessage('alert@corebridge.net', 'New Order', '2026-04-06T12:00:00Z', body);
 
       await service.processMessage(message);
@@ -132,11 +131,13 @@ describe('CorebridgeProcessorService', () => {
     });
 
     it('creates correct directory structure for estimate', async () => {
-      const body = 'Alert: New Estimate\nCustomer: Acme Corp\nReference #: EST-12345\nDescription: Sign Project\nOccurred: 2026-04-06\n';
+      const body =
+        'Alert: New Estimate\nCustomer: Acme Corp\nReference #: EST-12345\nDescription: Sign Project\nOccurred: 2026-04-06\n';
       const message = buildGmailMessage('alert@corebridge.net', 'New Estimate', '2026-04-06T12:00:00Z', body);
 
       await service.processMessage(message);
 
+      // eslint-disable-next-line @typescript-eslint/prefer-destructuring, @typescript-eslint/no-unsafe-assignment
       const rootCall = mockCreateFolders.mock.calls[0][0];
       expect(rootCall[0]).toBe('A');
       expect(rootCall[1]).toBe('Acme Corp');
@@ -150,9 +151,7 @@ describe('CorebridgeProcessorService', () => {
 
       const thirdLayerCalls = mockCreateFolders.mock.calls.slice(6);
       const thirdLayerNames = thirdLayerCalls.map((call: string[][]) => call[0][4]);
-      expect(thirdLayerNames).toEqual(
-        expect.arrayContaining(['Assets', 'Survey', 'Progress', 'Completion'])
-      );
+      expect(thirdLayerNames).toEqual(expect.arrayContaining(['Assets', 'Survey', 'Progress', 'Completion']));
     });
   });
 });

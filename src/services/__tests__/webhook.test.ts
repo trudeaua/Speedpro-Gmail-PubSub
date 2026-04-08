@@ -5,6 +5,7 @@ const mockSend = jest.fn();
 
 jest.mock('@aws-sdk/client-sqs', () => ({
   SQSClient: jest.fn().mockImplementation(() => ({ send: mockSend })),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   SendMessageCommand: jest.requireActual('@aws-sdk/client-sqs').SendMessageCommand
 }));
 

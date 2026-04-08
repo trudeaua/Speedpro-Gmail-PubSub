@@ -35,6 +35,7 @@ async function getStoredHistoryId(fileService: FileService): Promise<string> {
   const stateObject = await fileService.getObject(stateFileName);
   let state: { historyId?: number | string } | undefined;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     state = JSON.parse(stateObject);
   } catch {
     throw new Error('Failed to parse state file');
@@ -59,7 +60,7 @@ async function updateStoredHistoryId(fileService: FileService, historyId: string
  */
 export const handler = async (event: SQSEvent): Promise<void> => {
   // SQS event contains records; with batchSize 1 there's exactly one
-  const record = event.Records[0];
+  const [record] = event.Records;
   const { historyId: rawHistoryId } = JSON.parse(record.body) as { emailAddress: string; historyId: string | number };
   const historyId = String(rawHistoryId);
 

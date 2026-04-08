@@ -10,7 +10,9 @@ const sqs = new SQSClient({});
  * Parses the PubSub notification payload and extracts emailAddress and historyId.
  */
 function parsePayload(event: APIGatewayEvent): { emailAddress: string; historyId: string } {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const payload = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { emailAddress, historyId }: { emailAddress: string; historyId: string } = JSON.parse(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
     Buffer.from(payload.message.data, 'base64').toString('utf8')
