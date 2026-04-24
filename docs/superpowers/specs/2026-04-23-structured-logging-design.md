@@ -131,9 +131,8 @@ Signature becomes `processMessage(message: gmail_v1.Schema$Message, logger?: Log
 | Level | Event | Fields |
 |---|---|---|
 | info | `watch.start` | — |
-| info | `watch.refreshed` | `historyId`, `expiration` |
 
-Replaces the existing `console.log(response.data)` in `gmail.service.ts#watchUser`.
+The "done" event is emitted at the service layer (`gmail.watchUser.done`, below) to avoid duplicate lifecycle lines for this one-call handler.
 
 #### `processor.ts`
 | Level | Event | Fields |
@@ -171,7 +170,7 @@ Errors bubble; caller logs them.
 | debug | `gmail.listHistory.start` | `startHistoryId` |
 | debug | `gmail.listHistory.done` | `historyCount` |
 | debug | `gmail.getMessage` | `messageId` |
-| info | `gmail.watchUser.done` | `historyId`, `expiration` |
+| info | `gmail.watchUser.done` | `historyId`, `expiration` (replaces the current `console.log(response.data)` in `watchUser`) |
 
 #### `drive.service.ts`
 Replaces `util.debuglog('DRIVE_SERVICE')`.
