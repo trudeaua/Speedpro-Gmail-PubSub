@@ -79,4 +79,9 @@ rm path/to/service-account-key.json
 
 ## Impersonated User
 
-The service account impersonates `jeff@speedproerinmills.ca`. This is configured in `src/services/auth.service.ts`. To change the impersonated user, update the `subject` field in `AuthService`.
+The mailbox the service account acts as comes from the `GOOGLE_IMPERSONATE_EMAIL` environment
+variable. `AuthService` passes it to the JWT client as the `subject`.
+
+Set it in `.env` for local runs, and as a repository variable in GitHub for deployed runs (the
+deploy workflow passes it through to `serverless.yml`). The impersonated user needs access to the
+target Shared Drive, and the service account needs the scopes above authorized for the domain.
