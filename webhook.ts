@@ -7,6 +7,13 @@ dotenv.config();
 const sqs = new SQSClient({});
 
 /**
+ * Every notification goes into one FIFO message group so the processor runs one invocation
+ * at a time. Splitting the group (per mailbox, say) would need state.json to be split the
+ * same way first, since it tracks a single historyId.
+ */
+const MESSAGE_GROUP_ID = 'gmail';
+
+/**
  * Parses the PubSub notification payload and extracts emailAddress and historyId.
  */
 function parsePayload(event: APIGatewayEvent): { emailAddress: string; historyId: string } {
@@ -48,7 +55,11 @@ export const handler = async (event: APIGatewayEvent): Promise<{ statusCode: num
   await sqs.send(
     new SendMessageCommand({
       QueueUrl: queueUrl,
-      MessageBody: JSON.stringify(message)
+      MessageBody: JSON.stringify(message),
+      MessageGroupId: MESSAGE_GROUP_ID,
+      // Pub/Sub delivers at least once, so the same historyId can show up more than once.
+      // SQS drops the repeat within its 5 minute dedup window.
+      MessageDeduplicationId: message.historyId
     })
   );
 

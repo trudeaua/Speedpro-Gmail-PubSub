@@ -32,6 +32,23 @@ Folders created for a new estimate, under `<First letter>/<Customer>/<YYYY.MM>_<
 If the stored `historyId` is older than ~30 days Gmail returns 404. The processor detects that,
 resets state to the current `historyId` and moves on. Messages in the gap are not recovered.
 
+### Why the queue is FIFO
+
+The processor has to run one invocation at a time. Two concurrent runs read the same `historyId`
+out of `state.json`, walk the same slice of Gmail history and create the same Drive folders twice.
+
+The queue is FIFO and the webhook sends every message with the same `MessageGroupId`, so Lambda
+won't start a second invocation until the first finishes. `reservedConcurrency: 1` would do the
+same thing but AWS rejects it on this account, since reserving would push unreserved concurrency
+below the account minimum.
+
+Dedup is keyed on `historyId`, so a repeated Pub/Sub delivery of the same notification is dropped
+by SQS within its 5 minute window.
+
+The state write is a second line of defence: it's conditional on the ETag `state.json` was read at,
+so a slow invocation can't overwrite a newer `historyId` with an older one. On a rejected write the
+processor re-reads and re-decides, and gives up quietly if someone else already moved state past it.
+
 ## Prerequisites
 
 - Node.js 22
@@ -130,6 +147,8 @@ those need to be set in GitHub as well as in your local `.env`.
 ## Operational notes
 
 - The watch must be renewed at least every 7 days or the whole thing silently stops.
-- Failed messages land in `gmail-pubsub-dlq` after 3 attempts. Messages retain for 14 days there.
+- Failed messages land in `gmail-pubsub-dlq.fifo` after 3 attempts. They retain for 14 days there.
+  A message that keeps failing holds up the group until it exhausts its retries, which is the
+  tradeoff for processing in order.
 - Log retention is 7 days on all three functions.
 - Region is `ca-central-1`.

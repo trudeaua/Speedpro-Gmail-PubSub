@@ -1,3 +1,4 @@
+import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { FileService } from '@services/file.service';
@@ -9,6 +10,14 @@ const mockSend = jest.fn();
   send: mockSend
 }));
 
+/**
+ * The PutObjectCommand constructor is auto-mocked, so read the preconditions off its args.
+ */
+function putInput(call: number): PutObjectCommandInput {
+  const calls = (PutObjectCommand as unknown as jest.Mock).mock.calls as [PutObjectCommandInput][];
+  return calls[call][0];
+}
+
 describe('FileService', () => {
   let fileService: FileService;
 
@@ -19,14 +28,15 @@ describe('FileService', () => {
   });
 
   describe('getObject', () => {
-    it('returns the body string from S3', async () => {
+    it('returns the body string and ETag from S3', async () => {
       mockSend.mockResolvedValue({
-        Body: { transformToString: jest.fn().mockResolvedValue('{"historyId":"123"}') }
+        Body: { transformToString: jest.fn().mockResolvedValue('{"historyId":"123"}') },
+        ETag: '"abc"'
       });
 
       const result = await fileService.getObject('state.json');
 
-      expect(result).toBe('{"historyId":"123"}');
+      expect(result).toEqual({ body: '{"historyId":"123"}', etag: '"abc"' });
       expect(mockSend).toHaveBeenCalledWith(expect.any(GetObjectCommand));
     });
 
@@ -54,6 +64,15 @@ describe('FileService', () => {
 
       expect(result).toEqual(mockResponse);
       expect(mockSend).toHaveBeenCalledWith(expect.any(PutObjectCommand));
+      expect(putInput(0).IfMatch).toBeUndefined();
+    });
+
+    it('passes ifMatch through as the IfMatch precondition', async () => {
+      mockSend.mockResolvedValue({ ETag: '"def"' });
+
+      await fileService.putObject('state.json', '{"historyId":"456"}', { ifMatch: '"abc"' });
+
+      expect(putInput(0).IfMatch).toBe('"abc"');
     });
   });
 });
