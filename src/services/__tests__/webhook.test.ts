@@ -1,15 +1,28 @@
+import type { SendMessageCommandInput } from '@aws-sdk/client-sqs';
 import { SendMessageCommand } from '@aws-sdk/client-sqs';
 import type { APIGatewayEvent } from 'aws-lambda';
+
+import { handler } from '../../../webhook';
 
 const mockSend = jest.fn();
 
 jest.mock('@aws-sdk/client-sqs', () => ({
-  SQSClient: jest.fn().mockImplementation(() => ({ send: mockSend })),
+  // webhook.ts constructs its client at module load, and the import sort plugin puts that
+  // import above `mockSend`. Delegate instead of capturing so send() resolves when called.
+  SQSClient: jest.fn().mockImplementation(() => ({
+    send: (...args: unknown[]): unknown => mockSend(...args)
+  })),
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   SendMessageCommand: jest.requireActual('@aws-sdk/client-sqs').SendMessageCommand
 }));
 
-import { handler } from '../../../webhook';
+/**
+ * Reads the input off the SendMessageCommand handed to the mocked client.
+ */
+function sentInput(call: number): SendMessageCommandInput {
+  const calls = mockSend.mock.calls as unknown as [SendMessageCommand][];
+  return calls[call][0].input;
+}
 
 function makeEvent(emailAddress: string, historyId: string): APIGatewayEvent {
   const data = Buffer.from(JSON.stringify({ emailAddress, historyId })).toString('base64');
@@ -32,6 +45,19 @@ describe('webhook ingress handler', () => {
     expect(result.statusCode).toBe(200);
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend).toHaveBeenCalledWith(expect.any(SendMessageCommand));
+  });
+
+  it('sends every notification in one FIFO group so the processor stays serial', async () => {
+    await handler(makeEvent('user@example.com', '12345'));
+    await handler(makeEvent('user@example.com', '67890'));
+
+    expect([sentInput(0).MessageGroupId, sentInput(1).MessageGroupId]).toEqual(['gmail', 'gmail']);
+  });
+
+  it('dedupes on historyId so a repeated PubSub delivery is dropped by SQS', async () => {
+    await handler(makeEvent('user@example.com', '12345'));
+
+    expect(sentInput(0).MessageDeduplicationId).toBe('12345');
   });
 
   it('returns 400 for an invalid payload', async () => {

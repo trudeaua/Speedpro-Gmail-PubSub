@@ -22,7 +22,7 @@ describe('AuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.SECRET_TOKEN_ID = 'gmailpubsub/google_token';
-    process.env.GOOGLE_IMPERSONATE_EMAIL = 'jeff@speedproerinmills.ca';
+    process.env.GOOGLE_IMPERSONATE_EMAIL = 'user@example.com';
     authService = new AuthService();
   });
 
@@ -36,7 +36,7 @@ describe('AuthService', () => {
         email: validKey.client_email,
         key: validKey.private_key,
         scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/gmail.readonly'],
-        subject: 'jeff@speedproerinmills.ca'
+        subject: 'user@example.com'
       });
     });
 

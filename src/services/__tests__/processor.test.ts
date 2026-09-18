@@ -48,10 +48,20 @@ function makeSQSEvent(emailAddress: string, historyId: string): SQSEvent {
   };
 }
 
+/**
+ * Builds the S3 PreconditionFailed shape the SDK throws when IfMatch doesn't match.
+ */
+function preconditionFailed(): Error {
+  const err = new Error('At least one of the pre-conditions you specified did not hold');
+  err.name = 'PreconditionFailed';
+  (err as Error & { $metadata: { httpStatusCode: number } }).$metadata = { httpStatusCode: 412 };
+  return err;
+}
+
 describe('processor handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetObject.mockResolvedValue(JSON.stringify({ historyId: '100' }));
+    mockGetObject.mockResolvedValue({ body: JSON.stringify({ historyId: '100' }), etag: '"v1"' });
     mockPutObject.mockResolvedValue({});
   });
 
@@ -60,9 +70,7 @@ describe('processor handler', () => {
       data: {
         history: [
           {
-            messagesAdded: [
-              { message: { id: 'msg-success-1', labelIds: ['INBOX'] } }
-            ]
+            messagesAdded: [{ message: { id: 'msg-success-1', labelIds: ['INBOX'] } }]
           }
         ]
       }
@@ -75,7 +83,9 @@ describe('processor handler', () => {
     expect(mockGetMessage).toHaveBeenCalledWith('msg-success-1');
     expect(mockProcessMessage).toHaveBeenCalledTimes(1);
     // State should be updated to max(200, 100) = 200
-    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '200' }));
+    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '200' }), {
+      ifMatch: '"v1"'
+    });
   });
 
   it('throws when a message fails to process (so SQS retries)', async () => {
@@ -83,9 +93,7 @@ describe('processor handler', () => {
       data: {
         history: [
           {
-            messagesAdded: [
-              { message: { id: 'msg-fail-process-1', labelIds: ['INBOX'] } }
-            ]
+            messagesAdded: [{ message: { id: 'msg-fail-process-1', labelIds: ['INBOX'] } }]
           }
         ]
       }
@@ -104,9 +112,7 @@ describe('processor handler', () => {
       data: {
         history: [
           {
-            messagesAdded: [
-              { message: { id: 'msg-skip-label-1', labelIds: ['SPAM'] } }
-            ]
+            messagesAdded: [{ message: { id: 'msg-skip-label-1', labelIds: ['SPAM'] } }]
           }
         ]
       }
@@ -115,7 +121,9 @@ describe('processor handler', () => {
     await handler(makeSQSEvent('user@example.com', '200'));
 
     expect(mockGetMessage).not.toHaveBeenCalled();
-    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '200' }));
+    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '200' }), {
+      ifMatch: '"v1"'
+    });
   });
 
   it('does not update state when fetching a message fails', async () => {
@@ -123,9 +131,7 @@ describe('processor handler', () => {
       data: {
         history: [
           {
-            messagesAdded: [
-              { message: { id: 'msg-fail-fetch-1', labelIds: ['INBOX'] } }
-            ]
+            messagesAdded: [{ message: { id: 'msg-fail-fetch-1', labelIds: ['INBOX'] } }]
           }
         ]
       }
@@ -147,7 +153,9 @@ describe('processor handler', () => {
     await handler(makeSQSEvent('user@example.com', '200'));
 
     expect(mockGetProfile).toHaveBeenCalledTimes(1);
-    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '500' }));
+    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '500' }), {
+      ifMatch: '"v1"'
+    });
     expect(mockProcessMessage).not.toHaveBeenCalled();
   });
 
@@ -164,6 +172,62 @@ describe('processor handler', () => {
 
     await handler(makeSQSEvent('user@example.com', '200'));
 
-    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '200' }));
+    expect(mockPutObject).toHaveBeenCalledWith('state.json', JSON.stringify({ historyId: '200' }), {
+      ifMatch: '"v1"'
+    });
+  });
+
+  describe('state commit', () => {
+    beforeEach(() => {
+      mockListHistory.mockResolvedValue({ data: { history: [] } });
+    });
+
+    it('re-reads and retries when another invocation wrote state first', async () => {
+      mockGetObject
+        .mockResolvedValueOnce({ body: JSON.stringify({ historyId: '100' }), etag: '"v1"' })
+        .mockResolvedValueOnce({ body: JSON.stringify({ historyId: '150' }), etag: '"v2"' });
+      mockPutObject.mockRejectedValueOnce(preconditionFailed()).mockResolvedValueOnce({});
+
+      await handler(makeSQSEvent('user@example.com', '200'));
+
+      expect(mockPutObject).toHaveBeenCalledTimes(2);
+      expect(mockPutObject).toHaveBeenLastCalledWith('state.json', JSON.stringify({ historyId: '200' }), {
+        ifMatch: '"v2"'
+      });
+    });
+
+    it('gives up the write when the winner already moved state past us', async () => {
+      mockGetObject
+        .mockResolvedValueOnce({ body: JSON.stringify({ historyId: '100' }), etag: '"v1"' })
+        .mockResolvedValueOnce({ body: JSON.stringify({ historyId: '900' }), etag: '"v2"' });
+      mockPutObject.mockRejectedValueOnce(preconditionFailed());
+
+      await handler(makeSQSEvent('user@example.com', '200'));
+
+      // One rejected attempt, then nothing: 900 is already ahead of 200, so no rewind.
+      expect(mockPutObject).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not write at all when the stored historyId is already ahead', async () => {
+      mockGetObject.mockResolvedValue({ body: JSON.stringify({ historyId: '300' }), etag: '"v1"' });
+
+      await handler(makeSQSEvent('user@example.com', '200'));
+
+      expect(mockPutObject).not.toHaveBeenCalled();
+    });
+
+    it('throws when the write keeps losing, so SQS retries', async () => {
+      mockPutObject.mockRejectedValue(preconditionFailed());
+
+      await expect(handler(makeSQSEvent('user@example.com', '200'))).rejects.toThrow('after 5 attempts');
+      expect(mockPutObject).toHaveBeenCalledTimes(5);
+    });
+
+    it('rethrows non-precondition S3 errors', async () => {
+      mockPutObject.mockRejectedValue(new Error('AccessDenied'));
+
+      await expect(handler(makeSQSEvent('user@example.com', '200'))).rejects.toThrow('AccessDenied');
+      expect(mockPutObject).toHaveBeenCalledTimes(1);
+    });
   });
 });

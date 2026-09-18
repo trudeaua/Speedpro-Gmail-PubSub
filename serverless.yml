@@ -177,15 +177,25 @@ resources:
       Type: "AWS::Logs::LogGroup"
       Properties:
         RetentionInDays: "7"
+    # The DLQ of a FIFO queue has to be FIFO too.
     GmailPubSubDLQ:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: gmail-pubsub-dlq
+        QueueName: gmail-pubsub-dlq.fifo
+        FifoQueue: true
         MessageRetentionPeriod: 1209600
+    # FIFO, and every message is sent with the same MessageGroupId, so Lambda runs one
+    # processor invocation at a time. Two concurrent runs read the same historyId out of
+    # state.json, walk the same Gmail history and create the same Drive folders twice.
+    #
+    # This used to be handled with reservedConcurrency: 1 on the processor, which AWS
+    # rejects on this account (reserving would drop unreserved concurrency below the
+    # account minimum). Serialising through the queue does the same job with no quota.
     GmailPubSubQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: gmail-pubsub-queue
+        QueueName: gmail-pubsub-queue.fifo
+        FifoQueue: true
         VisibilityTimeout: 120
         MessageRetentionPeriod: 86400
         RedrivePolicy:
