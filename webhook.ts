@@ -15,21 +15,24 @@ const MESSAGE_GROUP_ID = 'gmail';
 
 /**
  * Parses the PubSub notification payload and extracts emailAddress and historyId.
+ *
+ * Gmail sends historyId as a JSON number, so it gets coerced here. Everything downstream
+ * (the dedup id, the message body, the state file) treats it as a string.
  */
 function parsePayload(event: APIGatewayEvent): { emailAddress: string; historyId: string } {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const payload = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const { emailAddress, historyId }: { emailAddress: string; historyId: string } = JSON.parse(
+  const { emailAddress, historyId }: { emailAddress?: string; historyId?: string | number } = JSON.parse(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
     Buffer.from(payload.message.data, 'base64').toString('utf8')
   );
 
-  if (!emailAddress || !historyId) {
+  if (!emailAddress || historyId === undefined || historyId === '') {
     throw new Error('Missing emailAddress or historyId in payload');
   }
 
-  return { emailAddress, historyId };
+  return { emailAddress, historyId: String(historyId) };
 }
 
 /**
