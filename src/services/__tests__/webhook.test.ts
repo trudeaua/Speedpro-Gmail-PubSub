@@ -24,7 +24,7 @@ function sentInput(call: number): SendMessageCommandInput {
   return calls[call][0].input;
 }
 
-function makeEvent(emailAddress: string, historyId: string): APIGatewayEvent {
+function makeEvent(emailAddress: string, historyId: string | number): APIGatewayEvent {
   const data = Buffer.from(JSON.stringify({ emailAddress, historyId })).toString('base64');
   return {
     body: JSON.stringify({ message: { data } })
@@ -58,6 +58,16 @@ describe('webhook ingress handler', () => {
     await handler(makeEvent('user@example.com', '12345'));
 
     expect(sentInput(0).MessageDeduplicationId).toBe('12345');
+  });
+
+  it('stringifies the numeric historyId Gmail actually sends', async () => {
+    await handler(makeEvent('user@example.com', 12345));
+
+    expect(sentInput(0).MessageDeduplicationId).toBe('12345');
+    expect(JSON.parse(String(sentInput(0).MessageBody))).toEqual({
+      emailAddress: 'user@example.com',
+      historyId: '12345'
+    });
   });
 
   it('returns 400 for an invalid payload', async () => {
